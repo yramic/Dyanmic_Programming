@@ -63,7 +63,6 @@ class VizRollout:
                 return False
         return True
 
-
     def increment_time(self):
         self.current_time += 1
         self.current_time = (self.current_time) % self.time_period
@@ -290,5 +289,7 @@ if __name__ == "__main__":
         vr.evolve_system()
         vr.make_video()
     else:
-        print('The policy rollout is not possible because the policy is not admissible with respect to the transition probabilities.')
-        print('Revisit your solution, run main.py and then viz_rollout.py.')
+        print(
+            "The policy rollout is not possible because the policy is not admissible with respect to the transition probabilities."
+        )
+        print("Revisit your solution, run main.py and then viz_rollout.py.")

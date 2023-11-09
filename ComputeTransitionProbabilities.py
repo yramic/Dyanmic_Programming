@@ -40,6 +40,25 @@ def compute_transition_probabilities(Constants):
     L = len(input_space)
 
     P = np.zeros((K, K, L))
+    # state_space = np.array(list(itertools.product(t, z, y, x)))
+
+    # itertools.product constructs the state space by forming all combinations of the given  sets.
+    # It does so by permuting the elements starting from the last set.
+    # So the first element will be (t0,z0,y0,x0), followed by (t0,z0,y0,x1) up to (t0,z0,y0,x_M-1)
+    # This is followed by (t0,z0,y1,x0) and so on. Consequently, moving forward one step in each direction is equal to:
+    # x: 1
+    # y: M
+    # z: N*M
+    # t: D*N*M
+    # So, to move forward one step in time, one level in the z direction, and one step up (in y), the corresponding state would be
+    # i + D*N*M + N*M + M
+    # Care has to be taken for x, because it wraps around
+
+    for i_t in range(Constants.T - 1):
+        for i_z in range(Constants.Z):
+            for i_y in range(Constants.M):
+                for i_x in range(Constants.N):
+                    pass
 
     # TODO fill the transition probability matrix P here
 

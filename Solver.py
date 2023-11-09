@@ -22,12 +22,12 @@ import numpy as np
 
 
 def solution(P, G, alpha):
-    """Computes the optimal cost and the optimal control input for each 
+    """Computes the optimal cost and the optimal control input for each
     state of the state space solving the discounted stochastic shortest
     path problem by:
             - Value Iteration;
             - Policy Iteration;
-            - Linear Programming; 
+            - Linear Programming;
             - or a combination of these.
 
     Args:
@@ -51,14 +51,15 @@ def solution(P, G, alpha):
 
     J_opt = np.zeros(K)
     u_opt = np.zeros(K)
-    
-    # TODO implement Value Iteration, Policy Iteration, 
+
+    # TODO implement Value Iteration, Policy Iteration,
     #      Linear Programming or a combination of these
 
     return J_opt, u_opt
 
+
 def freestyle_solution(Constants):
-    """Computes the optimal cost and the optimal control input for each 
+    """Computes the optimal cost and the optimal control input for each
     state of the state space solving the discounted stochastic shortest
     path problem with a 200 MiB memory cap.
 
@@ -73,7 +74,7 @@ def freestyle_solution(Constants):
 
     J_opt = np.zeros(K)
     u_opt = np.zeros(K)
-    
+
     # TODO implement a solution that not necessarily adheres to
     #      the solution template. You are free to use
     #      compute_transition_probabilities and

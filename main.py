@@ -31,10 +31,13 @@ from Solver import solution, freestyle_solution
 if __name__ == "__main__":
     print("Generating state space and input space...")
     # State space
-    t = np.arange(0, Constants.T) #np.arange returns 
+    # np.arange returns an ndarray of evenly spaced values between start and stop
+    t = np.arange(0, Constants.T)
     z = np.arange(0, Constants.D)
     y = np.arange(0, Constants.N)
     x = np.arange(0, Constants.M)
+
+    # returns an ndarray of all of the ordered pairs of the sets containing the possible states in each dimension, ie. the cartesion product of x,y,z,t
     state_space = np.array(list(itertools.product(t, z, y, x)))
     K = len(state_space)
 
