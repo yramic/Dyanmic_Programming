@@ -89,7 +89,7 @@ class Constants:
 
     # ----- Disturbances -----
     # Stochastic disturbances at the same altitude.
-    # To access the probability of moving H_NORTH at level z = 2,
+    # To access the probability of moving NORTH at level z = 2,
     # P_H_TRANSITION[2].P_WIND[H_NORTH]
     P_H_TRANSITION = [
         Wind(H_WEST, 0.9),  # Level 0
@@ -104,5 +104,5 @@ class Constants:
     # Locations of the cities
     # [(y,x),(y,x),...] of the cities
     # Filled by GenerateMap.py
-    CITIES_LOCATIONS = (np.vstack((np.random.randint(0,N,N_CITIES),
-                                   np.random.randint(0,M,N_CITIES)))).tolist()
+    CITIES_LOCATIONS = np.stack((np.random.randint(0,N,N_CITIES),
+                                    np.random.randint(0,M,N_CITIES)), axis=1).tolist()

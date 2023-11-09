@@ -31,7 +31,7 @@ from Solver import solution, freestyle_solution
 if __name__ == "__main__":
     print("Generating state space and input space...")
     # State space
-    t = np.arange(0, Constants.T)
+    t = np.arange(0, Constants.T) #np.arange returns 
     z = np.arange(0, Constants.D)
     y = np.arange(0, Constants.N)
     x = np.arange(0, Constants.M)
