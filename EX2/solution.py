@@ -13,6 +13,12 @@ import torch.utils.data
 import tqdm
 from matplotlib import pyplot as plt
 
+###########################################
+from sklearn.calibration import CalibratedClassifierCV
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import log_loss
+###########################################
+
 from util import draw_reliability_diagram, cost_function, setup_seeds, calc_calibration_curve
 
 EXTENDED_EVALUATION = False
@@ -39,9 +45,9 @@ def main():
     #     " are ignored when generating your submission file."
     # )
 
-    data_dir = pathlib.Path.cwd()
-    model_dir = pathlib.Path.cwd()
-    output_dir = pathlib.Path.cwd()
+    data_dir = pathlib.Path.cwd() / "EX2"
+    model_dir = pathlib.Path.cwd() / "EX2"
+    output_dir = pathlib.Path.cwd() / "EX2"
 
     # Load training data
     train_xs = torch.from_numpy(np.load(data_dir / "train_xs.npz")["train_xs"])
@@ -298,6 +304,23 @@ class SWAGInference(object):
         assert val_is_snow.size() == (140,)
         assert val_is_cloud.size() == (140,)
 
+        ##################################################################
+        pred_probs = self.predict_probabilities(validation_data)
+        calibrated_model = CalibratedClassifierCV(
+            base_estimator=LogisticRegression(),  
+            method='sigmoid', 
+            cv='prefit'
+        )
+        calibrated_model.fit(pred_probs.numpy(), val_ys.numpy())
+        calibrated_probs = calibrated_model.predict_proba(pred_probs.numpy())[:, 1]
+        calibration_loss = log_loss(val_ys.numpy(), calibrated_probs)
+        mean_calibrated_prob = calibrated_probs.mean()
+        self._prediction_threshold = mean_calibrated_prob
+        percentile_threshold = np.percentile(calibrated_probs, 90)
+        self._prediction_threshold = percentile_threshold
+        ####################################################################
+
+
     def predict_probabilities_swag(self, loader: torch.utils.data.DataLoader) -> torch.Tensor:
         """
         Perform Bayesian model averaging using your SWAG statistics and predict
@@ -401,11 +424,38 @@ class SWAGInference(object):
 
         # A bit better: use a threshold to decide whether to return a label or "don't know" (label -1)
         # TODO(2): implement a different decision rule if desired
-        return torch.where(
-            label_probabilities >= self._prediction_threshold,
-            max_likelihood_labels,
-            torch.ones_like(max_likelihood_labels) * -1,
-        )
+    
+        # Implemented a better prediction decision rule:
+
+        # This is my first variant that hasn't worked unfortunatelly!
+        # min_likelihood_labels_tot = []
+        # avg_likelihood_labels_tot = []
+
+        # for i in range(num_classes):
+        #     label_i = torch.where(max_likelihood_labels == i)[0]
+        #     min_likelihood_labels_tot.append(torch.min(label_probabilities[label_i]))
+        #     avg_likelihood_labels_tot.append(torch.mean(label_probabilities[label_i]))
+        #     threshold_i = min_likelihood_labels_tot[i] + (avg_likelihood_labels_tot[i] - min_likelihood_labels_tot[i]) * 1.1
+        #     max_likelihood_labels[label_i] = torch.where(label_probabilities[label_i] >= threshold_i, 
+        #                                                  max_likelihood_labels[label_i], 
+        #                                                  torch.ones_like(label_i) * -1)
+
+        # Next try consists with the spread:
+        for i in range(num_classes):
+            label_i = torch.where(max_likelihood_labels == i)[0]
+            spread_i = torch.std(label_probabilities[label_i])
+            avg_likelihood_i = torch.mean(label_probabilities[label_i])
+            threshold_i = avg_likelihood_i - 1.0 * spread_i
+            max_likelihood_labels[label_i] = torch.where(label_probabilities[label_i] > threshold_i, max_likelihood_labels[label_i], torch.ones_like(label_i) * -1)
+
+        return max_likelihood_labels
+
+
+        # return torch.where(
+        #     label_probabilities >= self._prediction_threshold,
+        #     max_likelihood_labels,
+        #     torch.ones_like(max_likelihood_labels) * -1,
+        # )
 
     def _create_weight_copy(self) -> typing.Dict[str, torch.Tensor]:
         """Create an all-zero copy of the network weights as a dictionary that maps name -> weight"""
