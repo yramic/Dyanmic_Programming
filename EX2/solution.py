@@ -16,7 +16,8 @@ from matplotlib import pyplot as plt
 ###########################################
 from sklearn.calibration import CalibratedClassifierCV
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import log_loss
+from sklearn.semi_supervised import SelfTrainingClassifier
+# from sklearn.metrics import log_loss
 ###########################################
 
 from util import draw_reliability_diagram, cost_function, setup_seeds, calc_calibration_curve
@@ -121,7 +122,7 @@ class SWAGInference(object):
         # TODO(2): change inference_mode to InferenceMode.SWAG_FULL
         inference_mode: InferenceMode = InferenceMode.SWAG_FULL,
         # TODO(2): optionally add/tweak hyperparameters
-        swag_epochs: int = 30,
+        swag_epochs: int = 1,
         swag_learning_rate: float = 0.045,
         swag_update_freq: int = 1,
         deviation_matrix_max_rank: int = 15,
@@ -305,19 +306,34 @@ class SWAGInference(object):
         assert val_is_cloud.size() == (140,)
 
         ##################################################################
-        pred_probs = self.predict_probabilities(validation_data)
-        calibrated_model = CalibratedClassifierCV(
-            base_estimator=LogisticRegression(),  
-            method='sigmoid', 
-            cv='prefit'
-        )
-        calibrated_model.fit(pred_probs.numpy(), val_ys.numpy())
-        calibrated_probs = calibrated_model.predict_proba(pred_probs.numpy())[:, 1]
-        calibration_loss = log_loss(val_ys.numpy(), calibrated_probs)
-        mean_calibrated_prob = calibrated_probs.mean()
-        self._prediction_threshold = mean_calibrated_prob
-        percentile_threshold = np.percentile(calibrated_probs, 90)
-        self._prediction_threshold = percentile_threshold
+        # This parts needs to be active for both Options!
+        # pred_probs = self.predict_probabilities(val_xs)
+        # pred_probs_numpy = pred_probs.numpy()
+        # val_ys_numpy = val_ys.numpy()
+
+        ######################### OPTION 1: ###############################
+        # reg_func = LogisticRegression()
+        # calibrated_model = CalibratedClassifierCV(base_estimator=reg_func)
+        # self_training_model = SelfTrainingClassifier(calibrated_model)
+        # self_training_model.fit(pred_probs_numpy, val_ys_numpy)
+        # predictions = self_training_model.predict(pred_probs_numpy)
+        # calibrated_probs = calibrated_model.predict_proba(pred_probs_numpy)[:, 1]
+        # percentile_threshold = np.percentile(calibrated_probs, 90)
+        # self._prediction_threshold = percentile_threshold
+
+        ######################## OPTION 2: ##################################
+
+        # base_estimator = LogisticRegression()
+        # calibrated_model = CalibratedClassifierCV(
+        #     base_estimator=base_estimator,
+        #     method='sigmoid',
+        #     cv='prefit'
+        # )
+        # calibrated_probs = calibrated_model.predict_proba(pred_probs_numpy)[:, 1]
+        # # mean_calibrated_prob = calibrated_probs.mean()
+        # base_estimator.fit(pred_probs_numpy, val_ys_numpy)
+        # percentile_threshold = np.percentile(calibrated_probs, 90)
+        # self._prediction_threshold = percentile_threshold
         ####################################################################
 
 
@@ -425,7 +441,7 @@ class SWAGInference(object):
         # A bit better: use a threshold to decide whether to return a label or "don't know" (label -1)
         # TODO(2): implement a different decision rule if desired
     
-        # Implemented a better prediction decision rule:
+        #################### OPTION 1: ####################
 
         # This is my first variant that hasn't worked unfortunatelly!
         # min_likelihood_labels_tot = []
@@ -439,23 +455,27 @@ class SWAGInference(object):
         #     max_likelihood_labels[label_i] = torch.where(label_probabilities[label_i] >= threshold_i, 
         #                                                  max_likelihood_labels[label_i], 
         #                                                  torch.ones_like(label_i) * -1)
-
+        
+        #################### OPTION 2: ####################
         # Next try consists with the spread:
-        for i in range(num_classes):
-            label_i = torch.where(max_likelihood_labels == i)[0]
-            spread_i = torch.std(label_probabilities[label_i])
-            avg_likelihood_i = torch.mean(label_probabilities[label_i])
-            threshold_i = avg_likelihood_i - 1.0 * spread_i
-            max_likelihood_labels[label_i] = torch.where(label_probabilities[label_i] > threshold_i, max_likelihood_labels[label_i], torch.ones_like(label_i) * -1)
+        # for i in range(num_classes):
+        #     label_i = torch.where(max_likelihood_labels == i)[0]
+        #     spread_i = torch.std(label_probabilities[label_i])
+        #     avg_likelihood_i = torch.mean(label_probabilities[label_i])
+        #     threshold_i = avg_likelihood_i - 1.0 * spread_i
+        #     max_likelihood_labels[label_i] = torch.where(label_probabilities[label_i] > threshold_i, max_likelihood_labels[label_i], torch.ones_like(label_i) * -1)
 
-        return max_likelihood_labels
+        # return max_likelihood_labels
 
+        #################### OPTION 3: ####################
+        if self._prediction_threshold is None:
+            raise ValueError("Threshold not set!")
 
-        # return torch.where(
-        #     label_probabilities >= self._prediction_threshold,
-        #     max_likelihood_labels,
-        #     torch.ones_like(max_likelihood_labels) * -1,
-        # )
+        return torch.where(
+            label_probabilities >= self._prediction_threshold,
+            max_likelihood_labels,
+            torch.ones_like(max_likelihood_labels) * -1,
+        )
 
     def _create_weight_copy(self) -> typing.Dict[str, torch.Tensor]:
         """Create an all-zero copy of the network weights as a dictionary that maps name -> weight"""
