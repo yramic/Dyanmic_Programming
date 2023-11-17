@@ -64,6 +64,12 @@ def solution(P, G, alpha):
     x_step_wrap = -(Constants.M - 1)
 
     err = 1e-100
+    verbose = False
+
+    # solvers:
+    # 0 = Standard Value Iteration (working)
+    # 1 = Gauss Seidel value iteration (working)
+    solver = 1
 
     def get_possible_next_states(i_t, i_z, i_y, i_x, i, u):
         j = []
@@ -124,65 +130,81 @@ def solution(P, G, alpha):
 
     # ------------Gauss-Seidel VI --------------------------------
     # (Value Iteration with in place cost updates) (not working)
+    if solver == 1:
+        iter = 0
+        while iter < 300:
+            iter += 1
+            for i_t in range(Constants.T):
+                for i_z in range(Constants.D):
+                    for i_y in range(Constants.N):
+                        for i_x in range(Constants.M):
+                            i = i_x + i_y * y_step + i_z * z_step + i_t * t_step
+                            # cost = expected_cost(
+                            #     G, P, i=i, i_t=i_t, i_z=i_z, i_y=i_y, i_x=i_x
+                            # )
+                            cost = np.empty(len(input_space))
+                            for u in input_space:
+                                # print(P[i, P[i, :, u] != 0, u])
+                                cost[u] = G[i, u] + alpha * np.sum(P[i, :, u] * J_opt)
+                            J_opt[i] = np.min(cost)
+                            u_opt[i] = np.argmin(cost)
 
-    # iter = 0
-    # while iter < 300:
-    #     iter += 1
-    #     for i_t in range(Constants.T):
-    #         for i_z in range(Constants.D):
-    #             for i_y in range(Constants.N):
-    #                 for i_x in range(Constants.M):
-    #                     i = i_x + i_y * y_step + i_z * z_step + i_t * t_step
-    #                     cost = expected_cost(
-    #                         G, P, i=i, i_t=i_t, i_z=i_z, i_y=i_y, i_x=i_x
-    #                     )
-    #                     J_opt[i] = np.min(cost)
-    #                     u_opt[i] = np.argmin(cost)
-
-    #     # if np.allclose(J_opt, J_opt_prev, rtol=1e-04, atol=1e-07):
-    #     current_error = np.max(np.abs(J_opt_prev - J_opt)) / np.max(np.abs(J_opt))
-    #     if current_error < err:
-    #         break
-    #     else:
-    #         J_opt_prev = np.copy(J_opt)
-    #         print("Iteration {} with error {:.4f}".format(iter, current_error))
-
+            # if np.allclose(J_opt, J_opt_prev, rtol=1e-04, atol=1e-07):
+            current_error = np.max(np.abs(J_opt_prev - J_opt)) / np.max(np.abs(J_opt))
+            if current_error < err:
+                break
+            else:
+                J_opt_prev = np.copy(J_opt)
+                if verbose:
+                    print("Iteration {} with error {:.4f}".format(iter, current_error))
+        return J_opt, u_opt
     # ----------------------------------------------------------
 
     # ---------------Value Iteration-----------------------------
+    if solver == 0:
+        iter = 0
+        while iter < 200:
+            iter += 1
+            for i_t in range(Constants.T):
+                for i_z in range(Constants.D):
+                    for i_y in range(Constants.N):
+                        for i_x in range(Constants.M):
+                            i = i_x + i_y * y_step + i_z * z_step + i_t * t_step
+                            # cost = expected_cost(
+                            #     G, P, i=i, i_t=i_t, i_z=i_z, i_y=i_y, i_x=i_x
+                            # )
+                            cost = np.empty(len(input_space))
+                            for u in input_space:
+                                # print(P[i, P[i, :, u] != 0, u])
+                                cost[u] = G[i, u] + alpha * np.sum(
+                                    P[i, :, u] * J_opt_prev
+                                )
 
-    iter = 0
-    while iter < 300:
-        iter += 1
-        for i_t in range(Constants.T):
-            for i_z in range(Constants.D):
-                for i_y in range(Constants.N):
-                    for i_x in range(Constants.M):
-                        i = i_x + i_y * y_step + i_z * z_step + i_t * t_step
-                        # cost = expected_cost(
-                        #     G, P, i=i, i_t=i_t, i_z=i_z, i_y=i_y, i_x=i_x
-                        # )
-                        cost = np.empty(len(input_space))
-                        for u in input_space:
-                            # print(P[i, P[i, :, u] != 0, u])
-                            cost[u] = G[i, u] + np.sum(P[i, :, u] * J_opt_prev)
+                            J_opt[i] = np.min(cost)
+                            u_opt[i] = np.argmin(cost)
 
-                        J_opt[i] = np.min(cost)
-                        u_opt[i] = np.argmin(cost)
+            # if np.allclose(J_opt, J_opt_prev, rtol=1e-04, atol=1e-07):
+            current_error = np.max(np.abs(J_opt_prev - J_opt)) / np.max(np.abs(J_opt))
+            if current_error < err:
+                break
+            else:
+                # test = np.allclose(J_opt, J_opt_prev, rtol=1e-04, atol=1e-07)
+                J_opt_prev = J_opt.copy()
 
-        # if np.allclose(J_opt, J_opt_prev, rtol=1e-04, atol=1e-07):
-        current_error = np.max(np.abs(J_opt_prev - J_opt)) / np.max(np.abs(J_opt))
-        if current_error < err:
-            break
-        else:
-            J_opt_prev = J_opt.copy()
-            print("Iteration {} with error {:.4f}".format(iter, current_error))
+                if verbose:
+                    # print(
+                    #     "Iteration {} with error {:.4f} and alternate convergence {}".format(
+                    #         iter, current_error, test
+                    #     )
+                    # )
 
-    print("Number of iterations: {}".format(iter))
-    # print(J_opt)
-    # print(J_opt_prev)
-    # print(u_opt)
-    return J_opt, u_opt
+                    print("Iteration {} ".format(iter))
+
+        print("Number of iterations: {}".format(iter))
+        # print(J_opt)
+        # print(J_opt_prev)
+        # print(u_opt)
+        return J_opt, u_opt
 
 
 def freestyle_solution(Constants):

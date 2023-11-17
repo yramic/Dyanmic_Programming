@@ -50,6 +50,9 @@ if __name__ == "__main__":
         P = compute_transition_probabilities(Constants)
         if not np.all(
             np.logical_or(np.isclose(P.sum(axis=1), 1), np.isclose(P.sum(axis=1), 0))
+            # np.logical_or(
+            #     np.isclose(P.sum(axis=1), Constants.ALPHA), np.isclose(P.sum(axis=1), 0)
+            # )
         ):
             print(
                 "[ERROR] Transition probabilities do not sum up to 1 or 0 along axis 1!"

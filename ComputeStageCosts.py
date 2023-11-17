@@ -67,8 +67,10 @@ def compute_stage_cost(Constants):
                         )
                         + pow(i_y - city[0], 2)
                     )
+                    # cost = np.sqrt((i_x - city[1]) ** 2 + pow(i_y - city[0], 2))
 
                 cities_cost[i_y][i_x] = cost
+        # print(cities_cost)
         return cities_cost
 
     def compute_solar_cost():
@@ -85,6 +87,7 @@ def compute_stage_cost(Constants):
                         (i_x + Constants.M - x_sun) ** 2,
                     ]
                 )
+        # print(solar_cost)
         return solar_cost
 
     discount_factor = 1 / Constants.ALPHA
@@ -94,6 +97,7 @@ def compute_stage_cost(Constants):
     t_step = z_step * Constants.D
     cities_cost = compute_horizontal_cities_cost()
     solar_cost = compute_solar_cost()
+    num_cities = len(Constants.CITIES_LOCATIONS)
     G = np.ones((K, L)) * np.inf
 
     for i_t in range(Constants.T):
@@ -104,19 +108,15 @@ def compute_stage_cost(Constants):
 
                     # not allowed to go up when at the top
                     if i_z == Constants.D - 1:
-                        G[i][Constants.V_STAY] = G[i][
-                            Constants.V_DOWN
-                        ] = discount_factor * (
+                        G[i][Constants.V_STAY] = G[i][Constants.V_DOWN] = (
                             cities_cost[i_y][i_x]
-                            + Constants.LAMBDA_LEVEL * i_z
+                            + Constants.LAMBDA_LEVEL * i_z * num_cities
                             + Constants.LAMBDA_TIMEZONE * solar_cost[i_t][i_x]
                         )
 
                     # not allowed to go down when at the bottom
                     elif i_z == 0:
-                        G[i][Constants.V_STAY] = G[i][
-                            Constants.V_UP
-                        ] = discount_factor * (
+                        G[i][Constants.V_STAY] = G[i][Constants.V_UP] = (
                             cities_cost[i_y][i_x]
                             # + Constants.LAMBDA_LEVEL * i_z # can remove because i_z is zero
                             + Constants.LAMBDA_TIMEZONE * solar_cost[i_t][i_x]
@@ -124,9 +124,9 @@ def compute_stage_cost(Constants):
 
                     # can choose any input when in a middle layer
                     else:
-                        G[i][:] = discount_factor * (
+                        G[i][:] = (
                             cities_cost[i_y][i_x]
-                            + Constants.LAMBDA_LEVEL * i_z
+                            + Constants.LAMBDA_LEVEL * i_z * num_cities
                             + Constants.LAMBDA_TIMEZONE * solar_cost[i_t][i_x]
                         )
 

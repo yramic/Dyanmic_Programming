@@ -85,40 +85,28 @@ def compute_transition_probabilities(Constants):
 
                         # ----------------no vertical displacement ---------------------------
                         P[i][i + t_step + x_left][u] = (
-                            Constants.ALPHA
-                            * Constants.P_H_TRANSITION[i_z].P_WIND[Constants.H_WEST]
+                            Constants.P_H_TRANSITION[i_z].P_WIND[Constants.H_WEST]
                         ) * P_V_stay  # Go left at x!=0
 
                         P[i][i + t_step + x_right][u] = (
-                            Constants.ALPHA
-                            * Constants.P_H_TRANSITION[i_z].P_WIND[Constants.H_EAST]
+                            Constants.P_H_TRANSITION[i_z].P_WIND[Constants.H_EAST]
                         ) * P_V_stay  # Go right at x!=M-1
 
                         # if we are at the top
                         if i_y == Constants.N - 1:
                             P[i][i + t_step][u] = (
-                                Constants.ALPHA
-                                * (
-                                    Constants.P_H_TRANSITION[i_z].P_WIND[
-                                        Constants.H_STAY
-                                    ]
-                                    + Constants.P_H_TRANSITION[i_z].P_WIND[
-                                        Constants.H_NORTH
-                                    ]
-                                )
-                                * P_V_stay
-                            )  # Stay where you are if no wind or pushed north
-                            P[i][i + t_step - y_step][u] = (
-                                Constants.ALPHA
-                                * Constants.P_H_TRANSITION[i_z].P_WIND[
-                                    Constants.H_SOUTH
+                                Constants.P_H_TRANSITION[i_z].P_WIND[Constants.H_STAY]
+                                + Constants.P_H_TRANSITION[i_z].P_WIND[
+                                    Constants.H_NORTH
                                 ]
+                            ) * P_V_stay  # Stay where you are if no wind or pushed north
+                            P[i][i + t_step - y_step][u] = (
+                                Constants.P_H_TRANSITION[i_z].P_WIND[Constants.H_SOUTH]
                             ) * P_V_stay  # Go south at y!=0
                         # if we are at the bottom
                         elif i_y == 0:
                             P[i][i + t_step][u] = (
-                                Constants.ALPHA
-                                * (
+                                (
                                     Constants.P_H_TRANSITION[i_z].P_WIND[
                                         Constants.H_STAY
                                     ]
@@ -128,67 +116,47 @@ def compute_transition_probabilities(Constants):
                                 )
                             ) * P_V_stay  # Stay where you are if no wind or pushed south
                             P[i][i + t_step + y_step][u] = (
-                                Constants.ALPHA
-                                * Constants.P_H_TRANSITION[i_z].P_WIND[
-                                    Constants.H_NORTH
-                                ]
+                                Constants.P_H_TRANSITION[i_z].P_WIND[Constants.H_NORTH]
                             ) * P_V_stay  # Go north at y!=N-1
                         # not at extremum in y
                         else:
                             P[i][i + t_step][u] = (
-                                Constants.ALPHA
-                                * (
-                                    Constants.P_H_TRANSITION[i_z].P_WIND[
-                                        Constants.H_STAY
-                                    ]
-                                )
-                                * P_V_stay
-                            )  # Stay where you are if no wind
+                                Constants.P_H_TRANSITION[i_z].P_WIND[Constants.H_STAY]
+                            ) * P_V_stay  # Stay where you are if no wind
                             P[i][i + t_step + y_step][u] = (
-                                Constants.ALPHA
-                                * Constants.P_H_TRANSITION[i_z].P_WIND[
-                                    Constants.H_NORTH
-                                ]
+                                Constants.P_H_TRANSITION[i_z].P_WIND[Constants.H_NORTH]
                             ) * P_V_stay  # Go north at y!=N-1
                             P[i][i + t_step - y_step][u] = (
-                                Constants.ALPHA
-                                * Constants.P_H_TRANSITION[i_z].P_WIND[
-                                    Constants.H_SOUTH
-                                ]
+                                Constants.P_H_TRANSITION[i_z].P_WIND[Constants.H_SOUTH]
                             ) * P_V_stay  # Go south at y!=0
                         # -----------------------------------------------------
 
                         # ------------vertical displacement---------------------
                         if u == Constants.V_UP or u == Constants.V_DOWN:
                             P[i][i + t_step + z_step + x_left][u] = (
-                                Constants.ALPHA
-                                * Constants.P_H_TRANSITION[i_z].P_WIND[Constants.H_WEST]
+                                Constants.P_H_TRANSITION[i_z].P_WIND[Constants.H_WEST]
                                 * Constants.P_V_TRANSITION[1]
                             )  # Go left at x=0
 
                             P[i][i + t_step + z_step + x_right][u] = (
-                                Constants.ALPHA
-                                * Constants.P_H_TRANSITION[i_z].P_WIND[Constants.H_EAST]
+                                Constants.P_H_TRANSITION[i_z].P_WIND[Constants.H_EAST]
                                 * Constants.P_V_TRANSITION[1]
                             )  # Go right at x=M-1
 
                             # if we are at the top
                             if i_y == Constants.N - 1:
                                 P[i][i + t_step + z_step][u] = (
-                                    Constants.ALPHA
-                                    * (
-                                        Constants.P_H_TRANSITION[i_z].P_WIND[
-                                            Constants.H_STAY
-                                        ]
-                                        + Constants.P_H_TRANSITION[i_z].P_WIND[
-                                            Constants.H_NORTH
-                                        ]
-                                    )
-                                    * Constants.P_V_TRANSITION[1]
-                                )  # Stay where you are if no wind or pushed north
+                                    Constants.P_H_TRANSITION[i_z].P_WIND[
+                                        Constants.H_STAY
+                                    ]
+                                    + Constants.P_H_TRANSITION[i_z].P_WIND[
+                                        Constants.H_NORTH
+                                    ]
+                                ) * Constants.P_V_TRANSITION[
+                                    1
+                                ]  # Stay where you are if no wind or pushed north
                                 P[i][i + t_step + z_step - y_step][u] = (
-                                    Constants.ALPHA
-                                    * Constants.P_H_TRANSITION[i_z].P_WIND[
+                                    Constants.P_H_TRANSITION[i_z].P_WIND[
                                         Constants.H_SOUTH
                                     ]
                                 ) * Constants.P_V_TRANSITION[
@@ -197,20 +165,17 @@ def compute_transition_probabilities(Constants):
                             # if we are at the bottom
                             elif i_y == 0:
                                 P[i][i + t_step + z_step][u] = (
-                                    Constants.ALPHA
-                                    * (
-                                        Constants.P_H_TRANSITION[i_z].P_WIND[
-                                            Constants.H_STAY
-                                        ]
-                                        + Constants.P_H_TRANSITION[i_z].P_WIND[
-                                            Constants.H_SOUTH
-                                        ]
-                                    )
-                                    * Constants.P_V_TRANSITION[1]
-                                )  # Stay where you are if no wind or pushed south
+                                    Constants.P_H_TRANSITION[i_z].P_WIND[
+                                        Constants.H_STAY
+                                    ]
+                                    + Constants.P_H_TRANSITION[i_z].P_WIND[
+                                        Constants.H_SOUTH
+                                    ]
+                                ) * Constants.P_V_TRANSITION[
+                                    1
+                                ]  # Stay where you are if no wind or pushed south
                                 P[i][i + t_step + z_step + y_step][u] = (
-                                    Constants.ALPHA
-                                    * Constants.P_H_TRANSITION[i_z].P_WIND[
+                                    Constants.P_H_TRANSITION[i_z].P_WIND[
                                         Constants.H_NORTH
                                     ]
                                 ) * Constants.P_V_TRANSITION[
@@ -219,17 +184,14 @@ def compute_transition_probabilities(Constants):
                             # not at extremum in y
                             else:
                                 P[i][i + t_step + z_step][u] = (
-                                    Constants.ALPHA
-                                    * (
-                                        Constants.P_H_TRANSITION[i_z].P_WIND[
-                                            Constants.H_STAY
-                                        ]
-                                    )
-                                    * Constants.P_V_TRANSITION[1]
-                                )  # Stay where you are if no wind
+                                    Constants.P_H_TRANSITION[i_z].P_WIND[
+                                        Constants.H_STAY
+                                    ]
+                                ) * Constants.P_V_TRANSITION[
+                                    1
+                                ]  # Stay where you are if no wind
                                 P[i][i + t_step + z_step + y_step][u] = (
-                                    Constants.ALPHA
-                                    * Constants.P_H_TRANSITION[i_z].P_WIND[
+                                    Constants.P_H_TRANSITION[i_z].P_WIND[
                                         Constants.H_NORTH
                                     ]
                                 ) * Constants.P_V_TRANSITION[
@@ -237,8 +199,7 @@ def compute_transition_probabilities(Constants):
                                 ]  # Go north at y!=N-1
 
                                 P[i][i + t_step + z_step - y_step][u] = (
-                                    Constants.ALPHA
-                                    * Constants.P_H_TRANSITION[i_z].P_WIND[
+                                    Constants.P_H_TRANSITION[i_z].P_WIND[
                                         Constants.H_SOUTH
                                     ]
                                 ) * Constants.P_V_TRANSITION[
@@ -247,7 +208,7 @@ def compute_transition_probabilities(Constants):
 
                         # check PDF
                         non_zero = P[i, P[i, :, u] != 0, u]
-                        if not np.isclose(np.sum(non_zero), 0.9):
+                        if not np.isclose(np.sum(non_zero), 1):
                             print(non_zero)
                             print(np.sum(non_zero))
                             raise ValueError("Not a valid PDF")
