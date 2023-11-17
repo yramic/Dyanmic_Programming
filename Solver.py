@@ -54,7 +54,7 @@ def solution(P, G, alpha):
     J_opt = np.ones(K)
     J_opt_prev = np.ones(K)
     u_opt = np.zeros(K)
-    inputs = [Constants.V_DOWN, Constants.V_STAY, Constants.V_UP]
+    input_space = [Constants.V_DOWN, Constants.V_STAY, Constants.V_UP]
 
     x_step = 1
     y_step = Constants.M
@@ -62,6 +62,8 @@ def solution(P, G, alpha):
     t_step = z_step * Constants.D
     t_step_wrap = -(Constants.T - 1) * t_step
     x_step_wrap = -(Constants.M - 1)
+
+    err = 1e-100
 
     def get_possible_next_states(i_t, i_z, i_y, i_x, i, u):
         j = []
@@ -108,7 +110,7 @@ def solution(P, G, alpha):
 
     def expected_cost(G, P, i, i_t, i_z, i_y, i_x):
         cost = np.empty(3)
-        for u in inputs:
+        for u in input_space:
             cost[u] = G[i, u]
             for j in get_possible_next_states(
                 i_t=i_t, i_z=i_z, i_y=i_y, i_x=i_x, i=i, u=u
@@ -120,30 +122,66 @@ def solution(P, G, alpha):
     # TODO implement Value Iteration, Policy Iteration,
     #      Linear Programming or a combination of these
 
-    # Gauss-Seidel VI (Value Iteration with in place cost updates)
+    # ------------Gauss-Seidel VI --------------------------------
+    # (Value Iteration with in place cost updates) (not working)
+
+    # iter = 0
+    # while iter < 300:
+    #     iter += 1
+    #     for i_t in range(Constants.T):
+    #         for i_z in range(Constants.D):
+    #             for i_y in range(Constants.N):
+    #                 for i_x in range(Constants.M):
+    #                     i = i_x + i_y * y_step + i_z * z_step + i_t * t_step
+    #                     cost = expected_cost(
+    #                         G, P, i=i, i_t=i_t, i_z=i_z, i_y=i_y, i_x=i_x
+    #                     )
+    #                     J_opt[i] = np.min(cost)
+    #                     u_opt[i] = np.argmin(cost)
+
+    #     # if np.allclose(J_opt, J_opt_prev, rtol=1e-04, atol=1e-07):
+    #     current_error = np.max(np.abs(J_opt_prev - J_opt)) / np.max(np.abs(J_opt))
+    #     if current_error < err:
+    #         break
+    #     else:
+    #         J_opt_prev = np.copy(J_opt)
+    #         print("Iteration {} with error {:.4f}".format(iter, current_error))
+
+    # ----------------------------------------------------------
+
+    # ---------------Value Iteration-----------------------------
+
     iter = 0
-    while 1:
+    while iter < 300:
         iter += 1
         for i_t in range(Constants.T):
             for i_z in range(Constants.D):
                 for i_y in range(Constants.N):
                     for i_x in range(Constants.M):
                         i = i_x + i_y * y_step + i_z * z_step + i_t * t_step
-                        cost = expected_cost(
-                            G, P, i=i, i_t=i_t, i_z=i_z, i_y=i_y, i_x=i_x
-                        )
+                        # cost = expected_cost(
+                        #     G, P, i=i, i_t=i_t, i_z=i_z, i_y=i_y, i_x=i_x
+                        # )
+                        cost = np.empty(len(input_space))
+                        for u in input_space:
+                            # print(P[i, P[i, :, u] != 0, u])
+                            cost[u] = G[i, u] + np.sum(P[i, :, u] * J_opt_prev)
+
                         J_opt[i] = np.min(cost)
                         u_opt[i] = np.argmin(cost)
 
-        if np.allclose(J_opt, J_opt_prev, rtol=1e-04, atol=1e-07):
+        # if np.allclose(J_opt, J_opt_prev, rtol=1e-04, atol=1e-07):
+        current_error = np.max(np.abs(J_opt_prev - J_opt)) / np.max(np.abs(J_opt))
+        if current_error < err:
             break
         else:
-            J_opt_prev = np.copy(J_opt)
+            J_opt_prev = J_opt.copy()
+            print("Iteration {} with error {:.4f}".format(iter, current_error))
 
     print("Number of iterations: {}".format(iter))
-    print(J_opt)
-    print(J_opt_prev)
-    print(u_opt)
+    # print(J_opt)
+    # print(J_opt_prev)
+    # print(u_opt)
     return J_opt, u_opt
 
 

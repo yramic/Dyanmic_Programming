@@ -108,7 +108,7 @@ class VizRollout:
             )
             idx_next = np.nonzero(self.P[idx_state, :, self.u[idx_state]])
             p_next = self.P[idx_state, idx_next, self.u[idx_state]][0]
-            print(p_next)
+            p_next = p_next / Constants.ALPHA
             idx_next = idx_next[0][np.random.choice(range(len(p_next)), 1, p=p_next)[0]]
 
             a = self.input_space[

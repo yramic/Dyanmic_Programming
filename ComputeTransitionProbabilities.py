@@ -57,7 +57,7 @@ def compute_transition_probabilities(Constants):
     g_x_step_wrap = -(Constants.M - 1)
     y_step = Constants.M
     g_z_step = y_step * Constants.N
-    g_t_step = z_step * Constants.D
+    g_t_step = g_z_step * Constants.D
     g_t_step_wrap = -(Constants.T - 1) * g_t_step
 
     # for u = STAY
@@ -76,7 +76,12 @@ def compute_transition_probabilities(Constants):
                         # P_V_move = (
                         #     0 if u == Constants.V_STAY else Constants.P_V_TRANSITION[1]
                         # )
-                        z_step = u * g_z_step
+                        z_step = g_z_step if u == Constants.V_UP else -g_z_step
+
+                        if (u == Constants.V_UP and i_z == Constants.D - 1) or (
+                            u == Constants.V_DOWN and i_z == 0
+                        ):
+                            continue
 
                         # ----------------no vertical displacement ---------------------------
                         P[i][i + t_step + x_left][u] = (
@@ -130,8 +135,14 @@ def compute_transition_probabilities(Constants):
                             ) * P_V_stay  # Go north at y!=N-1
                         # not at extremum in y
                         else:
-                            P[i][i + t_step][u] = Constants.ALPHA * (
-                                Constants.P_H_TRANSITION[i_z].P_WIND[Constants.H_STAY]
+                            P[i][i + t_step][u] = (
+                                Constants.ALPHA
+                                * (
+                                    Constants.P_H_TRANSITION[i_z].P_WIND[
+                                        Constants.H_STAY
+                                    ]
+                                )
+                                * P_V_stay
                             )  # Stay where you are if no wind
                             P[i][i + t_step + y_step][u] = (
                                 Constants.ALPHA
@@ -148,14 +159,14 @@ def compute_transition_probabilities(Constants):
                         # -----------------------------------------------------
 
                         # ------------vertical displacement---------------------
-                        if u != Constants.V_STAY:
+                        if u == Constants.V_UP or u == Constants.V_DOWN:
                             P[i][i + t_step + z_step + x_left][u] = (
                                 Constants.ALPHA
                                 * Constants.P_H_TRANSITION[i_z].P_WIND[Constants.H_WEST]
                                 * Constants.P_V_TRANSITION[1]
                             )  # Go left at x=0
 
-                            P[i][i + t_step + z_step + x_right][Constants.V_UP] = (
+                            P[i][i + t_step + z_step + x_right][u] = (
                                 Constants.ALPHA
                                 * Constants.P_H_TRANSITION[i_z].P_WIND[Constants.H_EAST]
                                 * Constants.P_V_TRANSITION[1]
@@ -233,3 +244,11 @@ def compute_transition_probabilities(Constants):
                                 ) * Constants.P_V_TRANSITION[
                                     1
                                 ]  # Go south at y!=0
+
+                        # check PDF
+                        non_zero = P[i, P[i, :, u] != 0, u]
+                        if not np.isclose(np.sum(non_zero), 0.9):
+                            print(non_zero)
+                            print(np.sum(non_zero))
+                            raise ValueError("Not a valid PDF")
+    return P
