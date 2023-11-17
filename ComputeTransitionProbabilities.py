@@ -53,543 +53,183 @@ def compute_transition_probabilities(Constants):
     # So, to move forward one step in time, one level in the z direction, and one step up (in y), the corresponding state would be
     # i + D*N*M + N*M + M
     # Care has to be taken for x and t, because they wrap around
-    x_step = 1
+    g_x_step = 1
+    g_x_step_wrap = -(Constants.M - 1)
     y_step = Constants.M
-    z_step = y_step * Constants.N
-    t_step = z_step * Constants.D
-    t_step_wrap = -(Constants.T - 1) * t_step
+    g_z_step = y_step * Constants.N
+    g_t_step = z_step * Constants.D
+    g_t_step_wrap = -(Constants.T - 1) * g_t_step
 
     # for u = STAY
-    for i_t in range(Constants.T):
-        for i_z in range(Constants.Z):
-            for i_y in range(Constants.M):
-                for i_x in range(Constants.N):
-                    i = i_x + i_y * y_step + i_z * z_step + i_t * t_step
+    for u in input_space:
+        for i_t in range(Constants.T):
+            for i_z in range(Constants.D):
+                for i_y in range(Constants.N):
+                    for i_x in range(Constants.M):
+                        i = i_x + i_y * y_step + i_z * g_z_step + i_t * g_t_step
+                        t_step = g_t_step if i_t != Constants.T - 1 else g_t_step_wrap
+                        x_right = g_x_step if i_x != Constants.M - 1 else g_x_step_wrap
+                        x_left = -g_x_step if i_x != 0 else -g_x_step_wrap
+                        P_V_stay = (
+                            1 if u == Constants.V_STAY else Constants.P_V_TRANSITION[0]
+                        )
+                        # P_V_move = (
+                        #     0 if u == Constants.V_STAY else Constants.P_V_TRANSITION[1]
+                        # )
+                        z_step = u * g_z_step
 
-                    # if i_t doesn't need to wrap
-                    if i_t != Constants.T - 1:
-                        P[i][i + t_step][Constants.V_STAY] = (
-                            Constants.Alpha
-                            * Constants.P_H_TRANSITION[i_z][Constants.H_STAY]
-                        )  # Stay where you are
+                        # ----------------no vertical displacement ---------------------------
+                        P[i][i + t_step + x_left][u] = (
+                            Constants.ALPHA
+                            * Constants.P_H_TRANSITION[i_z].P_WIND[Constants.H_WEST]
+                        ) * P_V_stay  # Go left at x!=0
 
-                        if i_x == 0:
-                            P[i][i + t_step + Constants.M - 1][Constants.V_STAY] = (
-                                Constants.Alpha
-                                * Constants.P_H_TRANSITION[i_z][Constants.H_WEST]
+                        P[i][i + t_step + x_right][u] = (
+                            Constants.ALPHA
+                            * Constants.P_H_TRANSITION[i_z].P_WIND[Constants.H_EAST]
+                        ) * P_V_stay  # Go right at x!=M-1
+
+                        # if we are at the top
+                        if i_y == Constants.N - 1:
+                            P[i][i + t_step][u] = (
+                                Constants.ALPHA
+                                * (
+                                    Constants.P_H_TRANSITION[i_z].P_WIND[
+                                        Constants.H_STAY
+                                    ]
+                                    + Constants.P_H_TRANSITION[i_z].P_WIND[
+                                        Constants.H_NORTH
+                                    ]
+                                )
+                                * P_V_stay
+                            )  # Stay where you are if no wind or pushed north
+                            P[i][i + t_step - y_step][u] = (
+                                Constants.ALPHA
+                                * Constants.P_H_TRANSITION[i_z].P_WIND[
+                                    Constants.H_SOUTH
+                                ]
+                            ) * P_V_stay  # Go south at y!=0
+                        # if we are at the bottom
+                        elif i_y == 0:
+                            P[i][i + t_step][u] = (
+                                Constants.ALPHA
+                                * (
+                                    Constants.P_H_TRANSITION[i_z].P_WIND[
+                                        Constants.H_STAY
+                                    ]
+                                    + Constants.P_H_TRANSITION[i_z].P_WIND[
+                                        Constants.H_SOUTH
+                                    ]
+                                )
+                            ) * P_V_stay  # Stay where you are if no wind or pushed south
+                            P[i][i + t_step + y_step][u] = (
+                                Constants.ALPHA
+                                * Constants.P_H_TRANSITION[i_z].P_WIND[
+                                    Constants.H_NORTH
+                                ]
+                            ) * P_V_stay  # Go north at y!=N-1
+                        # not at extremum in y
+                        else:
+                            P[i][i + t_step][u] = Constants.ALPHA * (
+                                Constants.P_H_TRANSITION[i_z].P_WIND[Constants.H_STAY]
+                            )  # Stay where you are if no wind
+                            P[i][i + t_step + y_step][u] = (
+                                Constants.ALPHA
+                                * Constants.P_H_TRANSITION[i_z].P_WIND[
+                                    Constants.H_NORTH
+                                ]
+                            ) * P_V_stay  # Go north at y!=N-1
+                            P[i][i + t_step - y_step][u] = (
+                                Constants.ALPHA
+                                * Constants.P_H_TRANSITION[i_z].P_WIND[
+                                    Constants.H_SOUTH
+                                ]
+                            ) * P_V_stay  # Go south at y!=0
+                        # -----------------------------------------------------
+
+                        # ------------vertical displacement---------------------
+                        if u != Constants.V_STAY:
+                            P[i][i + t_step + z_step + x_left][u] = (
+                                Constants.ALPHA
+                                * Constants.P_H_TRANSITION[i_z].P_WIND[Constants.H_WEST]
+                                * Constants.P_V_TRANSITION[1]
                             )  # Go left at x=0
-                        else:
-                            P[i][i + t_step - x_step][Constants.V_STAY] = (
-                                Constants.Alpha
-                                * Constants.P_H_TRANSITION[i_z][Constants.H_WEST]
-                            )  # Go left at x!=0
 
-                        if i_x == Constants.M - 1:
-                            P[i][i + t_step + 1 - Constants.M][Constants.V_STAY] = (
-                                Constants.Alpha
-                                * Constants.P_H_TRANSITION[i_z][Constants.H_EAST]
+                            P[i][i + t_step + z_step + x_right][Constants.V_UP] = (
+                                Constants.ALPHA
+                                * Constants.P_H_TRANSITION[i_z].P_WIND[Constants.H_EAST]
+                                * Constants.P_V_TRANSITION[1]
                             )  # Go right at x=M-1
-                        else:
-                            P[i][i + t_step + x_step][Constants.V_STAY] = (
-                                Constants.Alpha
-                                * Constants.P_H_TRANSITION[i_z][Constants.H_EAST]
-                            )  # Go right at x!=M-1
 
-                        if i_y != Constants.N - 1:
-                            P[i][i + t_step + y_step][Constants.V_STAY] = (
-                                Constants.Alpha
-                                * Constants.P_H_TRANSITION[i_z][Constants.H_NORTH]
-                            )  # Go north at y!=N-1
-
-                        if i_y != 0:
-                            P[i][i + t_step - y_step][Constants.V_STAY] = (
-                                Constants.Alpha
-                                * Constants.P_H_TRANSITION[i_z][Constants.H_SOUTH]
-                            )  # Go south at y!=0
-                    # i_t wraps around
-                    else:
-                        P[i][i + t_step_wrap][Constants.V_STAY] = (
-                            Constants.Alpha
-                            * Constants.P_H_TRANSITION[i_z][Constants.H_STAY]
-                        )  # Stay where you are
-
-                        if i_x == 0:
-                            P[i][i + t_step_wrap + Constants.M - 1][
-                                Constants.V_STAY
-                            ] = (
-                                Constants.Alpha
-                                * Constants.P_H_TRANSITION[i_z][Constants.H_WEST]
-                            )  # Go left at x=0
-                        else:
-                            P[i][i + t_step_wrap - x_step][Constants.V_STAY] = (
-                                Constants.Alpha
-                                * Constants.P_H_TRANSITION[i_z][Constants.H_WEST]
-                            )  # Go left at x!=0
-
-                        if i_x == Constants.M - 1:
-                            P[i][i + t_step_wrap + 1 - Constants.M][
-                                Constants.V_STAY
-                            ] = (
-                                Constants.Alpha
-                                * Constants.P_H_TRANSITION[i_z][Constants.H_EAST]
-                            )  # Go right at x=M-1
-                        else:
-                            P[i][i + t_step_wrap + x_step][Constants.V_STAY] = (
-                                Constants.Alpha
-                                * Constants.P_H_TRANSITION[i_z][Constants.H_EAST]
-                            )  # Go right at x!=M-1
-
-                        if i_y != Constants.N - 1:
-                            P[i][i + t_step_wrap + y_step][Constants.V_STAY] = (
-                                Constants.Alpha
-                                * Constants.P_H_TRANSITION[i_z][Constants.H_NORTH]
-                            )  # Go north at y!=N-1
-
-                        if i_y != 0:
-                            P[i][i + t_step_wrap - y_step][Constants.V_STAY] = (
-                                Constants.Alpha
-                                * Constants.P_H_TRANSITION[i_z][Constants.H_SOUTH]
-                            )  # Go south at y!=0
-
-    # for u = UP
-    for i_t in range(Constants.T):
-        for i_z in range(Constants.Z):
-            for i_y in range(Constants.M):
-                for i_x in range(Constants.N):
-                    i = i_x + i_y * y_step + i_z * z_step + i_t * t_step
-
-                    if t_step != Constants.T - 1:
-                        # Move only horizontally despite trying to go up, not at top level
-                        # TODO: Transition probabilities at the top with input UP are undefined (should they be zero because the behaviour is not allowed, or should they be calculated as normal)
-                        if i_z != Constants.D - 1:
-                            P[i][i + t_step][Constants.V_UP] = (
-                                Constants.Alpha
-                                * Constants.P_H_TRANSITION[i_z][Constants.H_STAY]
-                                * Constants.P_V_TRANSITION[0]
-                            )  # Stay where you are despite trying to go up (no wind)
-
-                            if i_x == 0:
-                                P[i][i + t_step + Constants.M - 1][Constants.V_UP] = (
-                                    Constants.Alpha
-                                    * Constants.P_H_TRANSITION[i_z][Constants.H_WEST]
-                                    * Constants.P_V_TRANSITION[0]
-                                )  # Go left at x=0
+                            # if we are at the top
+                            if i_y == Constants.N - 1:
+                                P[i][i + t_step + z_step][u] = (
+                                    Constants.ALPHA
+                                    * (
+                                        Constants.P_H_TRANSITION[i_z].P_WIND[
+                                            Constants.H_STAY
+                                        ]
+                                        + Constants.P_H_TRANSITION[i_z].P_WIND[
+                                            Constants.H_NORTH
+                                        ]
+                                    )
+                                    * Constants.P_V_TRANSITION[1]
+                                )  # Stay where you are if no wind or pushed north
+                                P[i][i + t_step + z_step - y_step][u] = (
+                                    Constants.ALPHA
+                                    * Constants.P_H_TRANSITION[i_z].P_WIND[
+                                        Constants.H_SOUTH
+                                    ]
+                                ) * Constants.P_V_TRANSITION[
+                                    1
+                                ]  # Go south at y!=0
+                            # if we are at the bottom
+                            elif i_y == 0:
+                                P[i][i + t_step + z_step][u] = (
+                                    Constants.ALPHA
+                                    * (
+                                        Constants.P_H_TRANSITION[i_z].P_WIND[
+                                            Constants.H_STAY
+                                        ]
+                                        + Constants.P_H_TRANSITION[i_z].P_WIND[
+                                            Constants.H_SOUTH
+                                        ]
+                                    )
+                                    * Constants.P_V_TRANSITION[1]
+                                )  # Stay where you are if no wind or pushed south
+                                P[i][i + t_step + z_step + y_step][u] = (
+                                    Constants.ALPHA
+                                    * Constants.P_H_TRANSITION[i_z].P_WIND[
+                                        Constants.H_NORTH
+                                    ]
+                                ) * Constants.P_V_TRANSITION[
+                                    1
+                                ]  # Go north at y!=N-1
+                            # not at extremum in y
                             else:
-                                P[i][i + t_step - x_step][Constants.V_UP] = (
-                                    Constants.Alpha
-                                    * Constants.P_H_TRANSITION[i_z][Constants.H_WEST]
-                                    * Constants.P_V_TRANSITION[0]
-                                )  # Go left at x!=0
-
-                            if i_x == Constants.M - 1:
-                                P[i][i + t_step + 1 - Constants.M][Constants.V_UP] = (
-                                    Constants.Alpha
-                                    * Constants.P_H_TRANSITION[i_z][Constants.H_EAST]
-                                    * Constants.P_V_TRANSITION[0]
-                                )  # Go right at x=M-1
-                            else:
-                                P[i][i + t_step + x_step][Constants.V_UP] = (
-                                    Constants.Alpha
-                                    * Constants.P_H_TRANSITION[i_z][Constants.H_EAST]
-                                    * Constants.P_V_TRANSITION[0]
-                                )  # Go right at x!=M-1
-
-                            if i_y != Constants.N - 1:
-                                P[i][i + t_step + y_step][Constants.V_UP] = (
-                                    Constants.Alpha
-                                    * Constants.P_H_TRANSITION[i_z][Constants.H_NORTH]
-                                    * Constants.P_V_TRANSITION[0]
-                                )  # Go north at y!=N-1
-
-                            if i_y != 0:
-                                P[i][i + t_step - y_step][Constants.V_UP] = (
-                                    Constants.Alpha
-                                    * Constants.P_H_TRANSITION[i_z][Constants.H_SOUTH]
-                                    * Constants.P_V_TRANSITION[0]
-                                )  # Go south at y!=0
-
-                            # Go up
-                            P[i][i + t_step + z_step][Constants.V_UP] = (
-                                Constants.Alpha
-                                * Constants.P_H_TRANSITION[i_z][Constants.H_STAY]
-                                * Constants.P_V_TRANSITION[0]
-                            )  # Go up only (no wind)
-
-                            if i_x == 0:
-                                P[i][i + t_step + z_step + Constants.M - 1][
-                                    Constants.V_UP
-                                ] = (
-                                    Constants.Alpha
-                                    * Constants.P_H_TRANSITION[i_z][Constants.H_WEST]
+                                P[i][i + t_step + z_step][u] = (
+                                    Constants.ALPHA
+                                    * (
+                                        Constants.P_H_TRANSITION[i_z].P_WIND[
+                                            Constants.H_STAY
+                                        ]
+                                    )
                                     * Constants.P_V_TRANSITION[1]
-                                )  # Go left at x=0
-                            else:
-                                P[i][i + t_step + z_step - x_step][Constants.V_UP] = (
-                                    Constants.Alpha
-                                    * Constants.P_H_TRANSITION[i_z][Constants.H_WEST]
-                                    * Constants.P_V_TRANSITION[1]
-                                )  # Go left at x!=0
+                                )  # Stay where you are if no wind
+                                P[i][i + t_step + z_step + y_step][u] = (
+                                    Constants.ALPHA
+                                    * Constants.P_H_TRANSITION[i_z].P_WIND[
+                                        Constants.H_NORTH
+                                    ]
+                                ) * Constants.P_V_TRANSITION[
+                                    1
+                                ]  # Go north at y!=N-1
 
-                            if i_x == Constants.M - 1:
-                                P[i][i + t_step + z_step + 1 - Constants.M][
-                                    Constants.V_UP
-                                ] = (
-                                    Constants.Alpha
-                                    * Constants.P_H_TRANSITION[i_z][Constants.H_EAST]
-                                    * Constants.P_V_TRANSITION[1]
-                                )  # Go right at x=M-1
-                            else:
-                                P[i][i + t_step + z_step + x_step][Constants.V_UP] = (
-                                    Constants.Alpha
-                                    * Constants.P_H_TRANSITION[i_z][Constants.H_EAST]
-                                    * Constants.P_V_TRANSITION[1]
-                                )  # Go right at x!=M-1
-
-                            if i_y != Constants.N - 1:
-                                P[i][i + t_step + z_step + y_step][Constants.V_UP] = (
-                                    Constants.Alpha
-                                    * Constants.P_H_TRANSITION[i_z][Constants.H_NORTH]
-                                    * Constants.P_V_TRANSITION[1]
-                                )  # Go north at y!=N-1
-
-                            if i_y != 0:
-                                P[i][i + t_step + z_step - y_step][Constants.V_UP] = (
-                                    Constants.Alpha
-                                    * Constants.P_H_TRANSITION[i_z][Constants.H_SOUTH]
-                                    * Constants.P_V_TRANSITION[1]
-                                )  # Go south at y!=0
-                    # i_t wraps around
-                    else:
-                        if i_z != Constants.D - 1:
-                            P[i][i + t_step_wrap][Constants.V_UP] = (
-                                Constants.Alpha
-                                * Constants.P_H_TRANSITION[i_z][Constants.H_STAY]
-                                * Constants.P_V_TRANSITION[0]
-                            )  # Stay where you are despite trying to go up (no wind)
-
-                            if i_x == 0:
-                                P[i][i + t_step_wrap + Constants.M - 1][
-                                    Constants.V_UP
-                                ] = (
-                                    Constants.Alpha
-                                    * Constants.P_H_TRANSITION[i_z][Constants.H_WEST]
-                                    * Constants.P_V_TRANSITION[0]
-                                )  # Go left at x=0
-                            else:
-                                P[i][i + t_step_wrap - x_step][Constants.V_UP] = (
-                                    Constants.Alpha
-                                    * Constants.P_H_TRANSITION[i_z][Constants.H_WEST]
-                                    * Constants.P_V_TRANSITION[0]
-                                )  # Go left at x!=0
-
-                            if i_x == Constants.M - 1:
-                                P[i][i + t_step_wrap + 1 - Constants.M][
-                                    Constants.V_UP
-                                ] = (
-                                    Constants.Alpha
-                                    * Constants.P_H_TRANSITION[i_z][Constants.H_EAST]
-                                    * Constants.P_V_TRANSITION[0]
-                                )  # Go right at x=M-1
-                            else:
-                                P[i][i + t_step_wrap + x_step][Constants.V_UP] = (
-                                    Constants.Alpha
-                                    * Constants.P_H_TRANSITION[i_z][Constants.H_EAST]
-                                    * Constants.P_V_TRANSITION[0]
-                                )  # Go right at x!=M-1
-
-                            if i_y != Constants.N - 1:
-                                P[i][i + t_step_wrap + y_step][Constants.V_UP] = (
-                                    Constants.Alpha
-                                    * Constants.P_H_TRANSITION[i_z][Constants.H_NORTH]
-                                    * Constants.P_V_TRANSITION[0]
-                                )  # Go north at y!=N-1
-
-                            if i_y != 0:
-                                P[i][i + t_step_wrap - y_step][Constants.V_UP] = (
-                                    Constants.Alpha
-                                    * Constants.P_H_TRANSITION[i_z][Constants.H_SOUTH]
-                                    * Constants.P_V_TRANSITION[0]
-                                )  # Go south at y!=0
-
-                            # Go up
-                            P[i][i + t_step_wrap + z_step][Constants.V_UP] = (
-                                Constants.Alpha
-                                * Constants.P_H_TRANSITION[i_z][Constants.H_STAY]
-                                * Constants.P_V_TRANSITION[0]
-                            )  # Go up only (no wind)
-
-                            if i_x == 0:
-                                P[i][i + t_step_wrap + z_step + Constants.M - 1][
-                                    Constants.V_UP
-                                ] = (
-                                    Constants.Alpha
-                                    * Constants.P_H_TRANSITION[i_z][Constants.H_WEST]
-                                    * Constants.P_V_TRANSITION[1]
-                                )  # Go left at x=0
-                            else:
-                                P[i][i + t_step_wrap + z_step - x_step][
-                                    Constants.V_UP
-                                ] = (
-                                    Constants.Alpha
-                                    * Constants.P_H_TRANSITION[i_z][Constants.H_WEST]
-                                    * Constants.P_V_TRANSITION[1]
-                                )  # Go left at x!=0
-
-                            if i_x == Constants.M - 1:
-                                P[i][i + t_step_wrap + z_step + 1 - Constants.M][
-                                    Constants.V_UP
-                                ] = (
-                                    Constants.Alpha
-                                    * Constants.P_H_TRANSITION[i_z][Constants.H_EAST]
-                                    * Constants.P_V_TRANSITION[1]
-                                )  # Go right at x=M-1
-                            else:
-                                P[i][i + t_step_wrap + z_step + x_step][
-                                    Constants.V_UP
-                                ] = (
-                                    Constants.Alpha
-                                    * Constants.P_H_TRANSITION[i_z][Constants.H_EAST]
-                                    * Constants.P_V_TRANSITION[1]
-                                )  # Go right at x!=M-1
-
-                            if i_y != Constants.N - 1:
-                                P[i][i + t_step_wrap + z_step + y_step][
-                                    Constants.V_UP
-                                ] = (
-                                    Constants.Alpha
-                                    * Constants.P_H_TRANSITION[i_z][Constants.H_NORTH]
-                                    * Constants.P_V_TRANSITION[1]
-                                )  # Go north at y!=N-1
-
-                            if i_y != 0:
-                                P[i][i + t_step_wrap + z_step - y_step][
-                                    Constants.V_UP
-                                ] = (
-                                    Constants.Alpha
-                                    * Constants.P_H_TRANSITION[i_z][Constants.H_SOUTH]
-                                    * Constants.P_V_TRANSITION[1]
-                                )  # Go south at y!=0
-
-    # for u = DOWN
-    for i_t in range(Constants.T):
-        for i_z in range(Constants.Z):
-            for i_y in range(Constants.M):
-                for i_x in range(Constants.N):
-                    i = i_x + i_y * y_step + i_z * z_step + i_t * t_step
-
-                    if t_step != Constants.T - 1:
-                        # Move only horizontally despite trying to go down, not at bottom level
-                        if i_z != 0:
-                            P[i][i + t_step][Constants.V_DOWN] = (
-                                Constants.Alpha
-                                * Constants.P_H_TRANSITION[i_z][Constants.H_STAY]
-                                * Constants.P_V_TRANSITION[0]
-                            )  # Stay where you are despite trying to go down (no wind)
-
-                            if i_x == 0:
-                                P[i][i + t_step + Constants.M - 1][Constants.V_DOWN] = (
-                                    Constants.Alpha
-                                    * Constants.P_H_TRANSITION[i_z][Constants.H_WEST]
-                                    * Constants.P_V_TRANSITION[0]
-                                )  # Go left at x=0
-                            else:
-                                P[i][i + t_step - x_step][Constants.V_DOWN] = (
-                                    Constants.Alpha
-                                    * Constants.P_H_TRANSITION[i_z][Constants.H_WEST]
-                                    * Constants.P_V_TRANSITION[0]
-                                )  # Go left at x!=0
-
-                            if i_x == Constants.M - 1:
-                                P[i][i + t_step + 1 - Constants.M][Constants.V_DOWN] = (
-                                    Constants.Alpha
-                                    * Constants.P_H_TRANSITION[i_z][Constants.H_EAST]
-                                    * Constants.P_V_TRANSITION[0]
-                                )  # Go right at x=M-1
-                            else:
-                                P[i][i + t_step + x_step][Constants.V_DOWN] = (
-                                    Constants.Alpha
-                                    * Constants.P_H_TRANSITION[i_z][Constants.H_EAST]
-                                    * Constants.P_V_TRANSITION[0]
-                                )  # Go right at x!=M-1
-
-                            if i_y != Constants.N - 1:
-                                P[i][i + t_step + y_step][Constants.V_DOWN] = (
-                                    Constants.Alpha
-                                    * Constants.P_H_TRANSITION[i_z][Constants.H_NORTH]
-                                    * Constants.P_V_TRANSITION[0]
-                                )  # Go north at y!=N-1
-
-                            if i_y != 0:
-                                P[i][i + t_step - y_step][Constants.V_DOWN] = (
-                                    Constants.Alpha
-                                    * Constants.P_H_TRANSITION[i_z][Constants.H_SOUTH]
-                                    * Constants.P_V_TRANSITION[0]
-                                )  # Go south at y!=0
-
-                            # Go down
-                            P[i][i + t_step - z_step][Constants.V_DOWN] = (
-                                Constants.Alpha
-                                * Constants.P_H_TRANSITION[i_z][Constants.H_STAY]
-                                * Constants.P_V_TRANSITION[0]
-                            )  # Go down only (no wind)
-
-                            if i_x == 0:
-                                P[i][i + t_step - z_step + Constants.M - 1][
-                                    Constants.V_DOWN
-                                ] = (
-                                    Constants.Alpha
-                                    * Constants.P_H_TRANSITION[i_z][Constants.H_WEST]
-                                    * Constants.P_V_TRANSITION[1]
-                                )  # Go left at x=0
-                            else:
-                                P[i][i + t_step - z_step - x_step][Constants.V_DOWN] = (
-                                    Constants.Alpha
-                                    * Constants.P_H_TRANSITION[i_z][Constants.H_WEST]
-                                    * Constants.P_V_TRANSITION[1]
-                                )  # Go left at x!=0
-
-                            if i_x == Constants.M - 1:
-                                P[i][i + t_step - z_step + 1 - Constants.M][
-                                    Constants.V_DOWN
-                                ] = (
-                                    Constants.Alpha
-                                    * Constants.P_H_TRANSITION[i_z][Constants.H_EAST]
-                                    * Constants.P_V_TRANSITION[1]
-                                )  # Go right at x=M-1
-                            else:
-                                P[i][i + t_step - z_step + x_step][Constants.V_DOWN] = (
-                                    Constants.Alpha
-                                    * Constants.P_H_TRANSITION[i_z][Constants.H_EAST]
-                                    * Constants.P_V_TRANSITION[1]
-                                )  # Go right at x!=M-1
-
-                            if i_y != Constants.N - 1:
-                                P[i][i + t_step - z_step + y_step][Constants.V_DOWN] = (
-                                    Constants.Alpha
-                                    * Constants.P_H_TRANSITION[i_z][Constants.H_NORTH]
-                                    * Constants.P_V_TRANSITION[1]
-                                )  # Go north at y!=N-1
-
-                            if i_y != 0:
-                                P[i][i + t_step - z_step - y_step][Constants.V_DOWN] = (
-                                    Constants.Alpha
-                                    * Constants.P_H_TRANSITION[i_z][Constants.H_SOUTH]
-                                    * Constants.P_V_TRANSITION[1]
-                                )  # Go south at y!=0
-
-                    # i_t wraps around
-                    else:
-                        # Move only horizontally despite trying to go down, not at bottom level
-                        if i_z != 0:
-                            P[i][i + t_step_wrap][Constants.V_DOWN] = (
-                                Constants.Alpha
-                                * Constants.P_H_TRANSITION[i_z][Constants.H_STAY]
-                                * Constants.P_V_TRANSITION[0]
-                            )  # Stay where you are despite trying to go down (no wind)
-
-                            if i_x == 0:
-                                P[i][i + t_step_wrap + Constants.M - 1][
-                                    Constants.V_DOWN
-                                ] = (
-                                    Constants.Alpha
-                                    * Constants.P_H_TRANSITION[i_z][Constants.H_WEST]
-                                    * Constants.P_V_TRANSITION[0]
-                                )  # Go left at x=0
-                            else:
-                                P[i][i + t_step_wrap - x_step][Constants.V_DOWN] = (
-                                    Constants.Alpha
-                                    * Constants.P_H_TRANSITION[i_z][Constants.H_WEST]
-                                    * Constants.P_V_TRANSITION[0]
-                                )  # Go left at x!=0
-
-                            if i_x == Constants.M - 1:
-                                P[i][i + t_step_wrap + 1 - Constants.M][
-                                    Constants.V_DOWN
-                                ] = (
-                                    Constants.Alpha
-                                    * Constants.P_H_TRANSITION[i_z][Constants.H_EAST]
-                                    * Constants.P_V_TRANSITION[0]
-                                )  # Go right at x=M-1
-                            else:
-                                P[i][i + t_step_wrap + x_step][Constants.V_DOWN] = (
-                                    Constants.Alpha
-                                    * Constants.P_H_TRANSITION[i_z][Constants.H_EAST]
-                                    * Constants.P_V_TRANSITION[0]
-                                )  # Go right at x!=M-1
-
-                            if i_y != Constants.N - 1:
-                                P[i][i + t_step_wrap + y_step][Constants.V_DOWN] = (
-                                    Constants.Alpha
-                                    * Constants.P_H_TRANSITION[i_z][Constants.H_NORTH]
-                                    * Constants.P_V_TRANSITION[0]
-                                )  # Go north at y!=N-1
-
-                            if i_y != 0:
-                                P[i][i + t_step_wrap - y_step][Constants.V_DOWN] = (
-                                    Constants.Alpha
-                                    * Constants.P_H_TRANSITION[i_z][Constants.H_SOUTH]
-                                    * Constants.P_V_TRANSITION[0]
-                                )  # Go south at y!=0
-
-                            # Go down
-                            P[i][i + t_step_wrap - z_step][Constants.V_DOWN] = (
-                                Constants.Alpha
-                                * Constants.P_H_TRANSITION[i_z][Constants.H_STAY]
-                                * Constants.P_V_TRANSITION[0]
-                            )  # Go down only (no wind)
-
-                            if i_x == 0:
-                                P[i][i + t_step_wrap - z_step + Constants.M - 1][
-                                    Constants.V_DOWN
-                                ] = (
-                                    Constants.Alpha
-                                    * Constants.P_H_TRANSITION[i_z][Constants.H_WEST]
-                                    * Constants.P_V_TRANSITION[1]
-                                )  # Go left at x=0
-                            else:
-                                P[i][i + t_step_wrap - z_step - x_step][
-                                    Constants.V_DOWN
-                                ] = (
-                                    Constants.Alpha
-                                    * Constants.P_H_TRANSITION[i_z][Constants.H_WEST]
-                                    * Constants.P_V_TRANSITION[1]
-                                )  # Go left at x!=0
-
-                            if i_x == Constants.M - 1:
-                                P[i][i + t_step_wrap - z_step + 1 - Constants.M][
-                                    Constants.V_DOWN
-                                ] = (
-                                    Constants.Alpha
-                                    * Constants.P_H_TRANSITION[i_z][Constants.H_EAST]
-                                    * Constants.P_V_TRANSITION[1]
-                                )  # Go right at x=M-1
-                            else:
-                                P[i][i + t_step_wrap - z_step + x_step][
-                                    Constants.V_DOWN
-                                ] = (
-                                    Constants.Alpha
-                                    * Constants.P_H_TRANSITION[i_z][Constants.H_EAST]
-                                    * Constants.P_V_TRANSITION[1]
-                                )  # Go right at x!=M-1
-
-                            if i_y != Constants.N - 1:
-                                P[i][i + t_step_wrap - z_step + y_step][
-                                    Constants.V_DOWN
-                                ] = (
-                                    Constants.Alpha
-                                    * Constants.P_H_TRANSITION[i_z][Constants.H_NORTH]
-                                    * Constants.P_V_TRANSITION[1]
-                                )  # Go north at y!=N-1
-
-                            if i_y != 0:
-                                P[i][i + t_step_wrap - z_step - y_step][
-                                    Constants.V_DOWN
-                                ] = (
-                                    Constants.Alpha
-                                    * Constants.P_H_TRANSITION[i_z][Constants.H_SOUTH]
-                                    * Constants.P_V_TRANSITION[1]
-                                )  # Go south at y!=0
-
-    # TODO fill the transition probability matrix P here
-
-    return P
+                                P[i][i + t_step + z_step - y_step][u] = (
+                                    Constants.ALPHA
+                                    * Constants.P_H_TRANSITION[i_z].P_WIND[
+                                        Constants.H_SOUTH
+                                    ]
+                                ) * Constants.P_V_TRANSITION[
+                                    1
+                                ]  # Go south at y!=0

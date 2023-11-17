@@ -46,9 +46,9 @@ if __name__ == "__main__":
     L = len(input_space)
 
     # Set the following to True as you progress with the files
-    transition_probabilities_implemented = False
-    stage_costs_implemented = False
-    solution_implemented = False
+    transition_probabilities_implemented = True
+    stage_costs_implemented = True
+    solution_implemented = True
     freestyle_solution_implemented = False
 
     # Compute transition probabilities
@@ -95,12 +95,22 @@ if __name__ == "__main__":
 
     # Solve the stochastic shortest path problem
     if solution_implemented and not freestyle_solution_implemented:
+        import tracemalloc
+        import time
+
         sys.stdout.write("[ ] Solving discounted stochastic shortest path problem...")
+        tracemalloc.start()
+        start_time = time.time()
 
         # TODO implement this function in Solver.py
         J_opt, u_opt = solution(P, G, Constants.ALPHA)
+        end_time = time.time()
+        current, peak = tracemalloc.get_traced_memory()
+        tracemalloc.stop()
 
         print("\r[X] Discounted stochastic shortest path problem solved.    ")
+        print("Elapsed time: {:.6f} seconds".format(end_time - start_time))
+        print("Peak memory usage in MiB: {:.4}".format(peak / 2**20))
     else:
         print(
             "[ ] Solution of the discounted stochastic shortest path problem not implemented. If this is unexpected, check the boolean 'solution_implemented'."
@@ -111,7 +121,6 @@ if __name__ == "__main__":
     if freestyle_solution_implemented:
         P = None
         G = None
-        import tracemalloc
 
         sys.stdout.write("[ ] Solving discounted stochastic shortest path problem...")
         tracemalloc.start()

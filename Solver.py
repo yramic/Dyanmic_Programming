@@ -107,7 +107,7 @@ def solution(P, G, alpha):
         return j
 
     def expected_cost(G, P, i, i_t, i_z, i_y, i_x):
-        cost = np.array(3)
+        cost = np.empty(3)
         for u in inputs:
             cost[u] = G[i, u]
             for j in get_possible_next_states(
@@ -125,9 +125,9 @@ def solution(P, G, alpha):
     while 1:
         iter += 1
         for i_t in range(Constants.T):
-            for i_z in range(Constants.Z):
-                for i_y in range(Constants.M):
-                    for i_x in range(Constants.N):
+            for i_z in range(Constants.D):
+                for i_y in range(Constants.N):
+                    for i_x in range(Constants.M):
                         i = i_x + i_y * y_step + i_z * z_step + i_t * t_step
                         cost = expected_cost(
                             G, P, i=i, i_t=i_t, i_z=i_z, i_y=i_y, i_x=i_x
@@ -138,8 +138,12 @@ def solution(P, G, alpha):
         if np.allclose(J_opt, J_opt_prev, rtol=1e-04, atol=1e-07):
             break
         else:
-            J_opt_prev = J_opt
+            J_opt_prev = np.copy(J_opt)
 
+    print("Number of iterations: {}".format(iter))
+    print(J_opt)
+    print(J_opt_prev)
+    print(u_opt)
     return J_opt, u_opt
 
 

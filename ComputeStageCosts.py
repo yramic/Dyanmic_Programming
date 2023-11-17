@@ -57,8 +57,17 @@ def compute_stage_cost(Constants):
                 cost = 0
                 # city location has form [y,x]
                 for city in Constants.CITIES_LOCATIONS:
-                    # TODO: This doesn't take into account wrapping of the x-axis, maybe it should
-                    cost += np.sqrt(pow(i_x - city[1], 2) + pow(i_y - city[0], 2))
+                    cost += np.sqrt(
+                        np.min(
+                            [
+                                (i_x - Constants.M - city[1]) ** 2,
+                                (i_x - city[1]) ** 2,
+                                (i_x + Constants.M - city[1]) ** 2,
+                            ]
+                        )
+                        + pow(i_y - city[0], 2)
+                    )
+
                 cities_cost[i_y][i_x] = cost
         return cities_cost
 
@@ -70,13 +79,15 @@ def compute_stage_cost(Constants):
             )
             for i_x in range(Constants.M):
                 solar_cost[i_t][i_x] = np.min(
-                    (i_x - Constants.M - x_sun) ** 2,
-                    (i_x - x_sun) ** 2,
-                    (i_x + Constants.M - x_sun) ** 2,
+                    [
+                        (i_x - Constants.M - x_sun) ** 2,
+                        (i_x - x_sun) ** 2,
+                        (i_x + Constants.M - x_sun) ** 2,
+                    ]
                 )
         return solar_cost
 
-    discount_factor = 1 / Constants.Alpha
+    discount_factor = 1 / Constants.ALPHA
     x_step = 1
     y_step = Constants.M
     z_step = y_step * Constants.N
@@ -86,9 +97,9 @@ def compute_stage_cost(Constants):
     G = np.ones((K, L)) * np.inf
 
     for i_t in range(Constants.T):
-        for i_z in range(Constants.Z):
-            for i_y in range(Constants.M):
-                for i_x in range(Constants.N):
+        for i_z in range(Constants.D):
+            for i_y in range(Constants.N):
+                for i_x in range(Constants.M):
                     i = i_x + i_y * y_step + i_z * z_step + i_t * t_step
 
                     # not allowed to go up when at the top
