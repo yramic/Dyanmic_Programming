@@ -64,12 +64,14 @@ def solution(P, G, alpha):
     x_step_wrap = -(Constants.M - 1)
 
     err = 1e-100
-    verbose = False
+    verbose = True
 
     # solvers:
-    # 0 = Standard Value Iteration (working)
-    # 1 = Gauss Seidel value iteration (working)
-    solver = 1
+    # 0 = Standard Value Iteration (passing)
+    # 1 = Gauss Seidel value iteration (passing)
+    # 2 = Linear Programming (passing)
+    # 3 = Policy Iteration (passing)
+    solver = 3
 
     def get_possible_next_states(i_t, i_z, i_y, i_x, i, u):
         j = []
@@ -149,9 +151,9 @@ def solution(P, G, alpha):
                             J_opt[i] = np.min(cost)
                             u_opt[i] = np.argmin(cost)
 
-            # if np.allclose(J_opt, J_opt_prev, rtol=1e-04, atol=1e-07):
             current_error = np.max(np.abs(J_opt_prev - J_opt)) / np.max(np.abs(J_opt))
-            if current_error < err:
+            if np.allclose(J_opt, J_opt_prev, rtol=1e-04, atol=1e-07):
+                # if current_error < err:
                 break
             else:
                 J_opt_prev = np.copy(J_opt)
@@ -183,8 +185,95 @@ def solution(P, G, alpha):
                             J_opt[i] = np.min(cost)
                             u_opt[i] = np.argmin(cost)
 
-            # if np.allclose(J_opt, J_opt_prev, rtol=1e-04, atol=1e-07):
             current_error = np.max(np.abs(J_opt_prev - J_opt)) / np.max(np.abs(J_opt))
+            if np.allclose(J_opt, J_opt_prev, rtol=1e-04, atol=1e-07):
+                # if current_error < err:
+                break
+            else:
+                # test = np.allclose(J_opt, J_opt_prev, rtol=1e-04, atol=1e-07)
+                J_opt_prev = J_opt.copy()
+
+                if verbose:
+                    # print(
+                    #     "Iteration {} with error {:.4f} and alternate convergence {}".format(
+                    #         iter, current_error, test
+                    #     )
+                    # )
+                    print("Iteration {} with error {:.4f}".format(iter, current_error))
+
+                    # print("Iteration {} ".format(iter))
+
+        print("Number of iterations: {}".format(iter))
+        # print(J_opt)
+        # print(J_opt_prev)
+        # print(u_opt)
+        return J_opt, u_opt
+
+    # ------------------------------------------------------------------
+
+    # ----------------------Linear Programming------------------------------
+    if solver == 2:
+        from scipy.optimize import linprog
+
+        c = -np.ones(K)
+        L = len(input_space)
+        A_ub = np.zeros((K * L, K))
+        b_ub = np.zeros(K * L)
+
+        for i in range(L):
+            A_ub[K * i : K * (i + 1) if i != L - 1 else None, :] = (
+                np.eye(K) - alpha * P[:, :, i]
+            )
+            b_ub[K * i : K * (i + 1) if i != L - 1 else None] = G[:, i]
+
+        valid_indices = ~np.isinf(b_ub)
+        b_ub = b_ub[valid_indices]
+        A_ub = A_ub[valid_indices, :]
+        # b_ub = -b_ub
+
+        result = linprog(
+            c=c, A_ub=A_ub, b_ub=b_ub, method="highs", bounds=[(None, None)]
+        )
+        if result.status != 0:
+            raise ValueError("Linear program failed")
+        return result.x, u_opt
+
+    # --------------------------------------------------------------------------------
+
+    # --------------------Policy Iteration--------------------------------------------
+    if solver == 3:
+        from scipy.optimize import linprog
+
+        u_opt = np.ones(K)  # V_STAY at all starting states is a proper policy
+        A = np.eye(K) - alpha * P[:, :, 1]  # I-alpha*P(mu_0(i))
+        b = G[:, 1]  # constraints are initially the costs associated with mu_0(i)=STAY
+        c = -np.ones(
+            K
+        )  # objective function is the negative sum of V(i) over all states
+        result = linprog(c=c, A_eq=A, b_eq=b)
+        J_opt = result.x
+        iter = 0
+        P_mu = np.empty((K, K))
+        G_mu = np.empty(K)
+        while iter < 10:
+            iter += 1
+            for i_t in range(Constants.T):
+                for i_z in range(Constants.D):
+                    for i_y in range(Constants.N):
+                        for i_x in range(Constants.M):
+                            i = i_x + i_y * y_step + i_z * z_step + i_t * t_step
+                            cost = np.empty(len(input_space))
+                            for u in input_space:
+                                cost[u] = G[i, u] + alpha * np.sum(P[i, :, u] * J_opt)
+                            u_opt[i] = np.argmin(cost)
+                            P_mu[i, :] = P[i, :, int(u_opt[i])]
+                            G_mu[i] = G[i, int(u_opt[i])]
+            A = np.eye(K) - alpha * P_mu
+            result = linprog(c=c, A_eq=A, b_eq=G_mu)
+            J_opt = result.x
+
+            current_error = np.max(np.abs(J_opt_prev - J_opt)) / np.max(np.abs(J_opt))
+            # if np.allclose(J_opt, J_opt_prev, rtol=1e-04, atol=1e-07):
             if current_error < err:
                 break
             else:
@@ -197,14 +286,12 @@ def solution(P, G, alpha):
                     #         iter, current_error, test
                     #     )
                     # )
+                    print("Iteration {} with error {:.4f}".format(iter, current_error))
 
-                    print("Iteration {} ".format(iter))
+                    # print("Iteration {} ".format(iter))
 
-        print("Number of iterations: {}".format(iter))
-        # print(J_opt)
-        # print(J_opt_prev)
-        # print(u_opt)
         return J_opt, u_opt
+    # ---------------------------------------------------------------------------------
 
 
 def freestyle_solution(Constants):
