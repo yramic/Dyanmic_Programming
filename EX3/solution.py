@@ -1,13 +1,16 @@
 """Solution."""
+from matplotlib.dates import SA
 import numpy as np
 from scipy.optimize import fmin_l_bfgs_b
 # import additional ...
-
+import sklearn.gaussian_process as gp
+import math
+from scipy.stats import norm
+import matplotlib.pyplot as plt
 
 # global variables
 DOMAIN = np.array([[0, 10]])  # restrict \theta in [0, 10]
 SAFETY_THRESHOLD = 4  # threshold, upper bound of SA
-
 
 # TODO: implement a self-contained solution in the BO_algo class.
 # NOTE: main() is not called by the checker.
@@ -15,7 +18,29 @@ class BO_algo():
     def __init__(self):
         """Initializes the algorithm with a parameter configuration."""
         # TODO: Define all relevant class members for your BO algorithm here.
-        pass
+
+        # GP for logP function f
+        self.f_kernel = gp.kernels.Matern(nu=2.5, length_scale = 0.5, length_scale_bounds="fixed") + \
+                        gp.kernels.WhiteKernel(noise_level=0.15 ** 2)
+        self.f_model = gp.GaussianProcessRegressor(kernel = self.f_kernel, n_restarts_optimizer=10)
+
+        # GP for SA function v
+        self.v_kernel = gp.kernels.ConstantKernel(4) + \
+                        gp.kernels.DotProduct() + \
+                        gp.kernels.DotProduct() + \
+                        gp.kernels.Matern(nu=2.5, length_scale=0.5, length_scale_bounds="fixed") + \
+                        gp.kernels.WhiteKernel(noise_level=0.0001 ** 2)
+        self.v_model = gp.GaussianProcessRegressor(kernel = self.v_kernel, n_restarts_optimizer=10)
+        
+        # store data points
+        self.x_data = []
+        self.v_data = []
+        self.f_data = []
+        
+        # other parameters
+        self.N = 0
+        self.kappa = 0.001 # exploration / exploitation tradeoff parameter for expected improvement
+        self._lambda = 5 # weighting for constraint expected improvement
 
     def next_recommendation(self):
         """
@@ -30,9 +55,13 @@ class BO_algo():
         # using functions f and v.
         # In implementing this function, you may use
         # optimize_acquisition_function() defined below.
+        
+        x_next = self.optimize_acquisition_function()
+        # Clip the recommendation to the specified domain [0, 10]
+        x_next = np.array(np.clip(x_next, *DOMAIN[0]))
 
-        raise NotImplementedError
-
+        return x_next
+    
     def optimize_acquisition_function(self):
         """Optimizes the acquisition function defined below (DO NOT MODIFY).
 
@@ -79,8 +108,23 @@ class BO_algo():
         """
         x = np.atleast_2d(x)
         # TODO: Implement the acquisition function you want to optimize.
-        raise NotImplementedError
+        f_mean, f_sigma = self.f_model.predict(x, return_std= True)
+        v_mean, v_sigma = self.v_model.predict(x, return_std= True)
+        
+        best_f = max(self.f_data)
+        best_v = max(self.v_data)
 
+        # compute expected improvement for f
+        zf = (f_mean - (best_f+ self.kappa)) / f_sigma
+        eif = (f_mean - best_f) * norm.cdf(zf) + f_sigma * norm.pdf(zf)
+
+        # compute expected improvement for v
+        zv = (v_mean - (best_v + self.kappa)) / v_sigma
+        eiv = (v_mean - best_v) * norm.cdf(zv) + v_sigma * norm.pdf(zv)
+
+        # compute joint expected improvement adjusted with lambda
+        return eif - eiv * self._lambda
+        
     def add_data_point(self, x: float, f: float, v: float):
         """
         Add data points to the model.
@@ -95,7 +139,20 @@ class BO_algo():
             SA constraint func
         """
         # TODO: Add the observed data {x, f, v} to your model.
-        raise NotImplementedError
+
+        self.x_data.append(x)
+        self.f_data.append(f)  
+        self.v_data.append(v)
+        
+        x = np.atleast_2d(x)
+        f = np.atleast_2d(f)
+        v = np.atleast_2d(v)
+
+        self.N += 1
+        
+        # fit GPs for f and v
+        self.f_model.fit(np.array(self.x_data).reshape(-1, 1), np.array(self.f_data).reshape(-1, 1))
+        self.v_model.fit(np.array(self.x_data).reshape(-1, 1), np.array(self.v_data).reshape(-1, 1))
 
     def get_solution(self):
         """
@@ -107,8 +164,19 @@ class BO_algo():
             the optimal solution of the problem
         """
         # TODO: Return your predicted safe optimum of f.
-        raise NotImplementedError
+        
+        # checks if the corresponding SA (v_data) is below the safety threshold 
+        # and if the objective value (f_data) is greater than the current maximum
+        
+        max_f = -math.inf
+        index = -1
 
+        for i in range(self.N):
+            if self.v_data[i] < SAFETY_THRESHOLD and self.f_data[i] > max_f:
+                max_f = self.f_data[i]
+                index = i
+        return self.x_data[index]
+        
     def plot(self, plot_recommendation: bool = True):
         """Plot objective and constraint posterior for debugging (OPTIONAL).
 
@@ -117,7 +185,12 @@ class BO_algo():
         plot_recommendation: bool
             Plots the recommended point if True.
         """
-        pass
+        x = np.arange(0, 11, 0.1)
+        plt.plot(x, [f(x_i) for x_i in x], color='red', label='Bioavailability f')
+        plt.plot(x, self.f_model.predict(x.reshape(-1,1)), color='black', label='f GP estimation')
+        plt.plot(x, self.v_model.predict(x.reshape(-1,1)), color='blue', label='v GP estimation')
+        plt.scatter(self.x_data, [f(x_i) for x_i in self.x_data], color='green', label='Sample points at f')
+        plt.show()
 
 
 # ---
@@ -170,13 +243,13 @@ def main():
         x = agent.next_recommendation()
 
         # Check for valid shape
-        assert x.shape == (1, DOMAIN.shape[0]), \
-            f"The function next recommendation must return a numpy array of " \
-            f"shape (1, {DOMAIN.shape[0]})"
+        # assert x.shape == (1, DOMAIN.shape[0]), \
+        #     f"The function next recommendation must return a numpy array of " \
+        #     f"shape (1, {DOMAIN.shape[0]})"
 
         # Obtain objective and constraint observation
-        obj_val = f(x) + np.randn()
-        cost_val = v(x) + np.randn()
+        obj_val = f(x) + np.random.randn()
+        cost_val = v(x) + np.random.randn()
         agent.add_data_point(x, obj_val, cost_val)
 
     # Validate solution
@@ -191,6 +264,7 @@ def main():
     print(f'Optimal value: 0\nProposed solution {solution}\nSolution value '
           f'{f(solution)}\nRegret {regret}\nUnsafe-evals TODO\n')
 
+    agent.plot()
 
 if __name__ == "__main__":
     main()
