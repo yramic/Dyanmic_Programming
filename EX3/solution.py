@@ -42,6 +42,14 @@ class BO_algo():
         self.kappa = 0.001 # exploration / exploitation tradeoff parameter for expected improvement
         self._lambda = 5 # weighting for constraint expected improvement
 
+        # Variables for normalizing the Data!
+        self.x_mean = None
+        self.x_std = None
+        self.x_normalized = []
+        self.v_data_tot = []
+        self.f_data_tot = []
+
+
     def next_recommendation(self):
         """
         Recommend the next input to sample.
@@ -124,6 +132,29 @@ class BO_algo():
 
         # compute joint expected improvement adjusted with lambda
         return eif - eiv * self._lambda
+    
+    #################### ADDED #####################
+
+    def normalize_input(self):
+        # if self.x_mean is None or self.x_std is None:
+        self.x_mean = np.mean(self.x_data)
+        self.x_std = np.std(self.x_data)
+
+        # Normalization of the input data:
+        self.x_normalized = (self.x_data - self.x_mean) / self.x_std
+    
+    def store_data(self, x: float, f: float, v: float):
+        self.x_data.append(x)
+        self.f_data.append(f)  
+        self.v_data.append(v)
+
+        x = np.atleast_2d(x)
+        f = np.atleast_2d(f)
+        v = np.atleast_2d(v)
+
+        self.N += 1
+    ################################################
+
         
     def add_data_point(self, x: float, f: float, v: float):
         """
@@ -153,6 +184,13 @@ class BO_algo():
         # fit GPs for f and v
         self.f_model.fit(np.array(self.x_data).reshape(-1, 1), np.array(self.f_data).reshape(-1, 1))
         self.v_model.fit(np.array(self.x_data).reshape(-1, 1), np.array(self.v_data).reshape(-1, 1))
+
+    ########################### ADDED ################################
+    def GP_fit(self):
+        for i in range(self.N):
+            self.f_model.fit(np.array(self.x_normalized[i]).reshape(-1, 1), np.array(self.f_data_tot[i]).reshape(-1, 1))
+            self.v_model.fit(np.array(self.x_normalized[i]).reshape(-1, 1), np.array(self.v_data_tot[i]).reshape(-1, 1))
+    ##################################################################
 
     def get_solution(self):
         """
@@ -237,20 +275,30 @@ def main():
     cost_val = v(x_init)
     agent.add_data_point(x_init, obj_val, cost_val)
 
-    # Loop until budget is exhausted
-    for j in range(20):
+    ##################### ADDED #####################
+    for j in range(20): # Initially: 20
         # Get next recommendation
         x = agent.next_recommendation()
-
-        # Check for valid shape
-        # assert x.shape == (1, DOMAIN.shape[0]), \
-        #     f"The function next recommendation must return a numpy array of " \
-        #     f"shape (1, {DOMAIN.shape[0]})"
 
         # Obtain objective and constraint observation
         obj_val = f(x) + np.random.randn()
         cost_val = v(x) + np.random.randn()
-        agent.add_data_point(x, obj_val, cost_val)
+        agent.store_data(x, obj_val, cost_val)
+
+    agent.normalize_input()
+
+    agent.GP_fit()
+    #################################################
+
+    # # Loop until budget is exhausted
+    # for j in range(20): # Initially: 20
+    #     # Get next recommendation
+    #     x = agent.next_recommendation()
+
+    #     # Obtain objective and constraint observation
+    #     obj_val = f(x) + np.random.randn()
+    #     cost_val = v(x) + np.random.randn()
+    #     agent.add_data_point(x, obj_val, cost_val)
 
     # Validate solution
     solution = agent.get_solution()
