@@ -142,7 +142,12 @@ class Critic:
     def setup_critic(self):
         # TODO: Implement this function which sets up the critic(s). Take a look at the NeuralNetwork 
         # class in utils.py. Note that you can have MULTIPLE critic networks in this class.
-        pass
+        
+        # I will start with 2 critic networks:
+        critic_network_1 = NeuralNetwork(self.state_dim + self.action_dim, 1, self.hidden_size, 
+                                        self.hidden_layers, 'ReLU').to(self.device)
+        critic_network_2 = NeuralNetwork(self.state_dim + self.action_dim, 1, self.hidden_size, 
+                                         self.hidden_layers, 'ReLU').to(self.device)
 
 class TrainableParameter:
     '''
