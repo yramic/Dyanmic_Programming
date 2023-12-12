@@ -24,9 +24,28 @@ class NeuralNetwork(nn.Module):
         # with a variable number of hidden layers and hidden units.
         # Here you should define layers which your network will use.
 
+        # Extract the activation function, which should be a nn.functional type!
+        activation_func = getattr(nn.functional, activation)
+
+        layers = []
+        # Note: 
+        # input_dim = size of input sample
+        # hidden_size = size of output sample
+        layers.append(nn.Linear(input_dim, hidden_size))
+        # Chosen activation Function: ReLu:
+        layers.append(activation_func())
+        # Now we create hidden layers until we have the output size!
+        for _ in range(hidden_layers - 1):
+            layers.append(nn.Linear(hidden_size, hidden_size))
+            layers.append(activation_func())
+        # Last Layer should pass the actual output size:
+        layers.append(nn.Linear(hidden_size, output_dim))
+        # Now we store everything in the model
+        self.model(*layers)
+
     def forward(self, s: torch.Tensor) -> torch.Tensor:
         # TODO: Implement the forward pass for the neural network you have defined.
-        pass
+        return self.model(s)
     
 class Actor:
     def __init__(self,hidden_size: int, hidden_layers: int, actor_lr: float,
@@ -49,7 +68,11 @@ class Actor:
         '''
         # TODO: Implement this function which sets up the actor network. 
         # Take a look at the NeuralNetwork class in utils.py. 
-        pass
+        self.actor_network = NeuralNetwork(self.state_dim, 2 * self.action_dim, self.hidden_size,
+                                           self.hidden_layers, 'ReLU').to(self.device)
+        # I found a similiar implementation of stackoverflow!
+        # Note that I added 2*action_dim. This is because of the SAC algorithm where the actor outputs
+        # both the average (mean) and the spread (std) for each state!
 
     def clamp_log_std(self, log_std: torch.Tensor) -> torch.Tensor:
         '''
@@ -74,6 +97,30 @@ class Actor:
         # TODO: Implement this function which returns an action and its log probability.
         # If working with stochastic policies, make sure that its log_std are clamped 
         # using the clamp_log_std function.
+
+        output_network = self.actor_network(state)
+        # Note:
+        # Deterministic policy - Best action for this particular state every time (e.g. chess game). Single action
+        #                        for each state!
+        # Stochastic policy - Not necessarily the same action for the same state 
+        #                     (e.g. poker - same hand can win or loose!). Chosen from a probability distribution
+        # In this context Q-Learning which is a combination of those is often mentioned, not sure if we should
+        # implement this here?
+
+        # According to the SAC algorithm I now want to extract the mean and the std:
+        mean = output_network[:, :self.action_dim]
+        std = output_network[:, self.action_dim:]
+
+        log_std = self.clamp_log_std(std)
+
+        if deterministic:
+            action = mean
+        else:
+            action = mean + log_std.exp() * torch.rand_like(mean) 
+        # I am not sure about torch.rand_like here! Since the random sample should be according to the
+        # possible states (0, 2*pi)! torch.rand_like gives back normalized values
+        log_prob = Normal(mean, log_std.exp()).log_prob(mean + std.exp()*torch.rand_like(mean))
+
         assert action.shape == (state.shape[0], self.action_dim) and \
             log_prob.shape == (state.shape[0], self.action_dim), 'Incorrect shape for action or log_prob.'
         return action, log_prob
