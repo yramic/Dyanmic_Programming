@@ -286,7 +286,7 @@ class Agent:
             next_actions, next_log_prob = self.actor.get_action_and_log_prob(s_prime_batch, deterministic=False)
             critic_target_1 = self.critic.critic_network_1(torch.cat([s_prime_batch, next_actions], dim=-1))
             critic_target_2 = self.critic.critic_network_2(torch.cat([s_prime_batch, next_actions], dim=-1))
-            critic_target = torch.min(critic_target_1, critic_target_2) - (1-self.tau) * next_log_prob
+            critic_target = torch.min(critic_target_1, critic_target_2) - (self.tau) * next_log_prob
 
         l_critic_1 = nn.functional.mse_loss(critic_1, critic_target) # loss
         l_critic_2 = nn.functional.mse_loss(critic_2, critic_target)
@@ -298,7 +298,7 @@ class Agent:
             next_actions, next_log_prob = self.actor.get_action_and_log_prob(s_batch, deterministic=False)
             critic_target_1 = self.critic.critic_network_1(torch.cat([s_prime_batch, next_actions], dim=-1))
             critic_target_2 = self.critic.critic_network_2(torch.cat([s_prime_batch, next_actions], dim=-1))
-            critic_target = torch.min(critic_target_1, critic_target_2) - (1-self.tau) * next_log_prob
+            critic_target = torch.min(critic_target_1, critic_target_2) - (self.tau) * next_log_prob
 
         l_actor = nn.functional.mse_loss(torch.mean(critic_1, critic_2), critic_target)
         self.run_gradient_update_step(self.actor.actor_network, l_actor)
