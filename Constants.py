@@ -84,7 +84,7 @@ class Constants:
     LAMBDA_TIMEZONE = 0.4  # Factor in the cost related to the sun position
 
     # Discount factor
-    ALPHA = 0.9
+    ALPHA = 0.95
 
     # ----- Disturbances -----
     # Stochastic disturbances at the same altitude.

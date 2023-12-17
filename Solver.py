@@ -131,7 +131,7 @@ def solution(P, G, alpha):
     #      Linear Programming or a combination of these
 
     # ------------Gauss-Seidel VI --------------------------------
-    # (Value Iteration with in place cost updates) (not working)
+    # (Value Iteration with in place cost updates) (working)
     if solver == 1:
         iter = 0
         while iter < 300:
@@ -152,7 +152,8 @@ def solution(P, G, alpha):
                             u_opt[i] = np.argmin(cost)
 
             current_error = np.max(np.abs(J_opt_prev - J_opt)) / np.max(np.abs(J_opt))
-            if np.allclose(J_opt, J_opt_prev, rtol=1e-04, atol=1e-07):
+            # changed rtol from 1e-4
+            if np.allclose(J_opt, J_opt_prev, rtol=1e-06, atol=1e-07):
                 # if current_error < err:
                 break
             else:
@@ -236,7 +237,20 @@ def solution(P, G, alpha):
         )
         if result.status != 0:
             raise ValueError("Linear program failed")
-        return result.x, u_opt
+
+        J_opt = result.x
+        # derive optimal policy from optimal cost
+        for i_t in range(Constants.T):
+            for i_z in range(Constants.D):
+                for i_y in range(Constants.N):
+                    for i_x in range(Constants.M):
+                        i = i_x + i_y * y_step + i_z * z_step + i_t * t_step
+                        cost = np.empty(len(input_space))
+                        for u in input_space:
+                            cost[u] = G[i, u] + alpha * np.sum(P[i, :, u] * J_opt)
+                        u_opt[i] = np.argmin(cost)
+
+        return J_opt, u_opt
 
     # --------------------------------------------------------------------------------
 
@@ -273,8 +287,9 @@ def solution(P, G, alpha):
             J_opt = result.x
 
             current_error = np.max(np.abs(J_opt_prev - J_opt)) / np.max(np.abs(J_opt))
-            # if np.allclose(J_opt, J_opt_prev, rtol=1e-04, atol=1e-07):
-            if current_error < err:
+            # changed rtol from 1e-4
+            if np.allclose(J_opt, J_opt_prev, rtol=1e-05, atol=1e-07):
+                # if current_error < err:
                 break
             else:
                 # test = np.allclose(J_opt, J_opt_prev, rtol=1e-04, atol=1e-07)
