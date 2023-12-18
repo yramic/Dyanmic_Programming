@@ -17,8 +17,6 @@
  --
 """
 
-import numpy as np
-
 
 def compute_stage_cost(Constants):
     """Computes the stage cost matrix for the given problem.
@@ -35,6 +33,8 @@ def compute_stage_cost(Constants):
     Returns:
         np.array: Stage cost matrix G of shape (K,L)
     """
+    import numpy as np
+
     K = Constants.T * Constants.D * Constants.N * Constants.M
     input_space = np.array([Constants.V_DOWN, Constants.V_STAY, Constants.V_UP])
     L = len(input_space)

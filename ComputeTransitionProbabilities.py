@@ -17,8 +17,6 @@
  --
 """
 
-import numpy as np
-
 
 def compute_transition_probabilities(Constants):
     """Computes the transition probability matrix P.
@@ -35,6 +33,8 @@ def compute_transition_probabilities(Constants):
     Returns:
         np.array: Transition probability matrix of shape (K,K,L).
     """
+    import numpy as np
+
     K = Constants.T * Constants.D * Constants.N * Constants.M
     input_space = np.array([Constants.V_DOWN, Constants.V_STAY, Constants.V_UP])
     L = len(input_space)

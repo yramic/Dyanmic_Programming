@@ -324,6 +324,7 @@ def freestyle_solution(Constants):
 
     # from ComputeTransitionProbabilities import compute_transition_probabilities_sparse
     from ComputeStageCosts import compute_stage_cost
+    from ComputeTransitionProbabilities import compute_transition_probabilities
 
     K = Constants.T * Constants.D * Constants.N * Constants.M
 
@@ -579,10 +580,19 @@ def freestyle_solution(Constants):
             P.append(coo_array((values, (row_idx, col_idx)), shape=(K, K)).tocsr())
         return P
 
-    P = compute_transition_probabilities_sparse(Constants)
+    threshold = 1700
+
+    prob_threshold = 3000
+    P = (
+        compute_transition_probabilities(Constants)
+        if K < prob_threshold
+        else compute_transition_probabilities_sparse(Constants)
+    )
+    # P = compute_transition_probabilities_sparse(Constants)
     G = compute_stage_cost(Constants)
-    solver = 1
+    solver = 3 if K < threshold else 1
     K = G.shape[0]
+    P_flag = K < prob_threshold
 
     J_opt = np.ones(K)
     J_opt_prev = np.ones(K)
@@ -604,6 +614,7 @@ def freestyle_solution(Constants):
     # (Value Iteration with in place cost updates) (working)
     if solver == 1:
         iter = 0
+
         while iter < 1000:
             iter += 1
             for i_t in range(Constants.T):
@@ -616,8 +627,15 @@ def freestyle_solution(Constants):
                             cost = np.empty(len(input_space))
                             for u in input_space:
                                 # print(P[i, P[i, :, u] != 0, u])
-                                cost[u] = G[i, u] + alpha * P[u].getrow(i).dot(J_opt)
-                                # cost[u] = G[i, u] + alpha * np.sum(P[i, :, u] * J_opt)
+                                if P_flag:  # K<prob_threshold
+                                    cost[u] = G[i, u] + alpha * np.sum(
+                                        P[i, :, u] * J_opt
+                                    )
+                                else:
+                                    cost[u] = G[i, u] + alpha * P[u].getrow(i).dot(
+                                        J_opt
+                                    )
+
                             J_opt[i] = np.min(cost)
                             u_opt[i] = np.argmin(cost)
 
@@ -638,7 +656,7 @@ def freestyle_solution(Constants):
         from scipy.optimize import linprog
 
         u_opt = np.ones(K)  # V_STAY at all starting states is a proper policy
-        A = np.eye(K) - alpha * P[1].toarray()  # I-alpha*P(mu_0(i))
+        A = np.eye(K) - alpha * P[1].todense()  # I-alpha*P(mu_0(i))
         b = G[:, 1]  # constraints are initially the costs associated with mu_0(i)=STAY
         c = -np.ones(
             K
@@ -687,3 +705,46 @@ def freestyle_solution(Constants):
 
         return J_opt, u_opt
     # ---------------------------------------------------------------------------------
+    # ----------------------Linear Programming------------------------------
+    if solver == 3:
+        from scipy.optimize import linprog
+
+        c = -np.ones(K)
+        L = len(input_space)
+        A_ub = np.zeros((K * L, K))
+        b_ub = np.zeros(K * L)
+        # for i in range(L):
+        #     P[i] = P[i].todense()
+
+        for i in range(L):
+            A_ub[K * i : K * (i + 1) if i != L - 1 else None, :] = (
+                np.eye(K) - alpha * P[:, :, i]
+            )
+            b_ub[K * i : K * (i + 1) if i != L - 1 else None] = G[:, i]
+
+        valid_indices = ~np.isinf(b_ub)
+        b_ub = b_ub[valid_indices]
+        A_ub = A_ub[valid_indices, :]
+        # b_ub = -b_ub
+
+        result = linprog(
+            c=c, A_ub=A_ub, b_ub=b_ub, method="highs", bounds=[(None, None)]
+        )
+        if result.status != 0:
+            raise ValueError("Linear program failed")
+
+        J_opt = result.x
+        # derive optimal policy from optimal cost
+        for i_t in range(Constants.T):
+            for i_z in range(Constants.D):
+                for i_y in range(Constants.N):
+                    for i_x in range(Constants.M):
+                        i = i_x + i_y * y_step + i_z * z_step + i_t * t_step
+                        cost = np.empty(len(input_space))
+                        for u in input_space:
+                            cost[u] = G[i, u] + alpha * np.sum(P[i, :, u] * J_opt)
+                        u_opt[i] = np.argmin(cost)
+
+        return J_opt, u_opt
+
+    # --------------------------------------------------------------------------------

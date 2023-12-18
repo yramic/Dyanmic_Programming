@@ -65,7 +65,15 @@ if __name__ == "__main__":
         """
 
         # TODO implement this function in ComputeTransitionProbabilities.py
+        import tracemalloc
+
+        tracemalloc.start()
+
         P = compute_transition_probabilities(Constants)
+        current, peak = tracemalloc.get_traced_memory()
+        tracemalloc.stop()
+
+        print("Peak memory usage in MiB: {:.4}".format(peak / 2**20))
         print("\r[X] Transition probabilities computed.     ")
     else:
         print(
