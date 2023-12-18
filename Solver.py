@@ -64,14 +64,14 @@ def solution(P, G, alpha):
     x_step_wrap = -(Constants.M - 1)
 
     err = 1e-100
-    verbose = True
+    verbose = False
 
     # solvers:
     # 0 = Standard Value Iteration (passing)
     # 1 = Gauss Seidel value iteration (passing)
     # 2 = Linear Programming (passing)
     # 3 = Policy Iteration (passing)
-    solver = 3
+    solver = 2 if K < 5900 else 1
 
     def get_possible_next_states(i_t, i_z, i_y, i_x, i, u):
         j = []
@@ -134,7 +134,7 @@ def solution(P, G, alpha):
     # (Value Iteration with in place cost updates) (working)
     if solver == 1:
         iter = 0
-        while iter < 300:
+        while iter < 1000:
             iter += 1
             for i_t in range(Constants.T):
                 for i_z in range(Constants.D):
@@ -151,7 +151,7 @@ def solution(P, G, alpha):
                             J_opt[i] = np.min(cost)
                             u_opt[i] = np.argmin(cost)
 
-            current_error = np.max(np.abs(J_opt_prev - J_opt)) / np.max(np.abs(J_opt))
+            # current_error = np.max(np.abs(J_opt_prev - J_opt)) / np.max(np.abs(J_opt))
             # changed rtol from 1e-4
             if np.allclose(J_opt, J_opt_prev, rtol=1e-06, atol=1e-07):
                 # if current_error < err:
@@ -321,6 +321,10 @@ def freestyle_solution(Constants):
         np.array: The optimal cost to go for the discounted stochastic SPP
         np.array: The optimal control policy for the discounted stochastic SPP
     """
+
+    # from ComputeTransitionProbabilities import compute_transition_probabilities_sparse
+    from ComputeStageCosts import compute_stage_cost
+
     K = Constants.T * Constants.D * Constants.N * Constants.M
 
     J_opt = np.zeros(K)
@@ -332,4 +336,354 @@ def freestyle_solution(Constants):
     #      compute_stage_cost, but you are also free to introduce
     #      optimizations.
 
-    return J_opt, u_opt
+    def compute_transition_probabilities_sparse(Constants):
+        # from scipy.sparse import csr_array
+        from scipy.sparse import coo_array
+
+        K = Constants.T * Constants.D * Constants.N * Constants.M
+        input_space = np.array([Constants.V_DOWN, Constants.V_STAY, Constants.V_UP])
+        L = len(input_space)
+        P = []
+
+        g_x_step = 1
+        g_x_step_wrap = -(Constants.M - 1)
+        y_step = Constants.M
+        g_z_step = y_step * Constants.N
+        g_t_step = g_z_step * Constants.D
+        g_t_step_wrap = -(Constants.T - 1) * g_t_step
+
+        for u in input_space:
+            row_idx = []
+            col_idx = []
+            values = []
+            for i_t in range(Constants.T):
+                for i_z in range(Constants.D):
+                    for i_y in range(Constants.N):
+                        for i_x in range(Constants.M):
+                            i = i_x + i_y * y_step + i_z * g_z_step + i_t * g_t_step
+                            t_step = (
+                                g_t_step if i_t != Constants.T - 1 else g_t_step_wrap
+                            )
+                            x_right = (
+                                g_x_step if i_x != Constants.M - 1 else g_x_step_wrap
+                            )
+                            x_left = -g_x_step if i_x != 0 else -g_x_step_wrap
+                            P_V_stay = (
+                                1
+                                if u == Constants.V_STAY
+                                else Constants.P_V_TRANSITION[0]
+                            )
+                            # P_V_move = (
+                            #     0 if u == Constants.V_STAY else Constants.P_V_TRANSITION[1]
+                            # )
+                            z_step = g_z_step if u == Constants.V_UP else -g_z_step
+
+                            if (u == Constants.V_UP and i_z == Constants.D - 1) or (
+                                u == Constants.V_DOWN and i_z == 0
+                            ):
+                                continue
+
+                            # ----------------no vertical displacement ---------------------------
+
+                            row_idx.append(i)
+                            col_idx.append(i + t_step + x_left)
+                            values.append(
+                                Constants.P_H_TRANSITION[i_z].P_WIND[Constants.H_WEST]
+                                * P_V_stay
+                            )
+
+                            row_idx.append(i)
+                            col_idx.append(i + t_step + x_right)
+                            values.append(
+                                Constants.P_H_TRANSITION[i_z].P_WIND[Constants.H_EAST]
+                                * P_V_stay
+                            )
+
+                            # if we are at the top
+                            if i_y == Constants.N - 1:
+                                row_idx.append(i)
+                                col_idx.append(i + t_step)
+                                values.append(
+                                    (
+                                        Constants.P_H_TRANSITION[i_z].P_WIND[
+                                            Constants.H_STAY
+                                        ]
+                                        + Constants.P_H_TRANSITION[i_z].P_WIND[
+                                            Constants.H_NORTH
+                                        ]
+                                    )
+                                    * P_V_stay
+                                )
+
+                                row_idx.append(i)
+                                col_idx.append(i + t_step - y_step)
+                                values.append(
+                                    Constants.P_H_TRANSITION[i_z].P_WIND[
+                                        Constants.H_SOUTH
+                                    ]
+                                    * P_V_stay
+                                )
+                            # if we are at the bottom
+                            elif i_y == 0:
+                                row_idx.append(i)
+                                col_idx.append(i + t_step)
+                                values.append(
+                                    (
+                                        Constants.P_H_TRANSITION[i_z].P_WIND[
+                                            Constants.H_STAY
+                                        ]
+                                        + Constants.P_H_TRANSITION[i_z].P_WIND[
+                                            Constants.H_SOUTH
+                                        ]
+                                    )
+                                    * P_V_stay
+                                )
+
+                                row_idx.append(i)
+                                col_idx.append(i + t_step + y_step)
+                                values.append(
+                                    Constants.P_H_TRANSITION[i_z].P_WIND[
+                                        Constants.H_NORTH
+                                    ]
+                                    * P_V_stay
+                                )
+                            # not at extremum in y
+                            else:
+                                row_idx.append(i)
+                                col_idx.append(i + t_step)
+                                values.append(
+                                    Constants.P_H_TRANSITION[i_z].P_WIND[
+                                        Constants.H_STAY
+                                    ]
+                                    * P_V_stay
+                                )
+
+                                row_idx.append(i)
+                                col_idx.append(i + t_step + y_step)
+                                values.append(
+                                    (
+                                        Constants.P_H_TRANSITION[i_z].P_WIND[
+                                            Constants.H_NORTH
+                                        ]
+                                    )
+                                    * P_V_stay
+                                )
+
+                                row_idx.append(i)
+                                col_idx.append(i + t_step - y_step)
+                                values.append(
+                                    Constants.P_H_TRANSITION[i_z].P_WIND[
+                                        Constants.H_SOUTH
+                                    ]
+                                    * P_V_stay
+                                )
+                            # -----------------------------------------------------
+
+                            # ------------vertical displacement---------------------
+                            if u == Constants.V_UP or u == Constants.V_DOWN:
+                                row_idx.append(i)
+                                col_idx.append(i + t_step + z_step + x_left)
+                                values.append(
+                                    Constants.P_H_TRANSITION[i_z].P_WIND[
+                                        Constants.H_WEST
+                                    ]
+                                    * Constants.P_V_TRANSITION[1]
+                                )
+
+                                row_idx.append(i)
+                                col_idx.append(i + t_step + z_step + x_right)
+                                values.append(
+                                    Constants.P_H_TRANSITION[i_z].P_WIND[
+                                        Constants.H_EAST
+                                    ]
+                                    * Constants.P_V_TRANSITION[1]
+                                )
+
+                                # if we are at the top
+                                if i_y == Constants.N - 1:
+                                    row_idx.append(i)
+                                    col_idx.append(i + t_step + z_step)
+                                    values.append(
+                                        (
+                                            Constants.P_H_TRANSITION[i_z].P_WIND[
+                                                Constants.H_STAY
+                                            ]
+                                            + Constants.P_H_TRANSITION[i_z].P_WIND[
+                                                Constants.H_NORTH
+                                            ]
+                                        )
+                                        * Constants.P_V_TRANSITION[1]
+                                    )
+
+                                    row_idx.append(i)
+                                    col_idx.append(i + t_step + z_step - y_step)
+                                    values.append(
+                                        Constants.P_H_TRANSITION[i_z].P_WIND[
+                                            Constants.H_SOUTH
+                                        ]
+                                        * Constants.P_V_TRANSITION[1]
+                                    )
+                                # if we are at the bottom
+                                elif i_y == 0:
+                                    row_idx.append(i)
+                                    col_idx.append(i + t_step + z_step)
+                                    values.append(
+                                        (
+                                            Constants.P_H_TRANSITION[i_z].P_WIND[
+                                                Constants.H_STAY
+                                            ]
+                                            + Constants.P_H_TRANSITION[i_z].P_WIND[
+                                                Constants.H_SOUTH
+                                            ]
+                                        )
+                                        * Constants.P_V_TRANSITION[1]
+                                    )
+
+                                    row_idx.append(i)
+                                    col_idx.append(i + t_step + z_step + y_step)
+                                    values.append(
+                                        Constants.P_H_TRANSITION[i_z].P_WIND[
+                                            Constants.H_NORTH
+                                        ]
+                                        * Constants.P_V_TRANSITION[1]
+                                    )
+                                # not at extremum in y
+                                else:
+                                    row_idx.append(i)
+                                    col_idx.append(i + t_step + z_step)
+                                    values.append(
+                                        Constants.P_H_TRANSITION[i_z].P_WIND[
+                                            Constants.H_STAY
+                                        ]
+                                        * Constants.P_V_TRANSITION[1]
+                                    )
+
+                                    row_idx.append(i)
+                                    col_idx.append(i + t_step + z_step + y_step)
+                                    values.append(
+                                        Constants.P_H_TRANSITION[i_z].P_WIND[
+                                            Constants.H_NORTH
+                                        ]
+                                        * Constants.P_V_TRANSITION[1]
+                                    )
+
+                                    row_idx.append(i)
+                                    col_idx.append(i + t_step + z_step - y_step)
+                                    values.append(
+                                        Constants.P_H_TRANSITION[i_z].P_WIND[
+                                            Constants.H_SOUTH
+                                        ]
+                                        * Constants.P_V_TRANSITION[1]
+                                    )
+
+            P.append(coo_array((values, (row_idx, col_idx)), shape=(K, K)).tocsr())
+        return P
+
+    P = compute_transition_probabilities_sparse(Constants)
+    G = compute_stage_cost(Constants)
+    solver = 1
+    K = G.shape[0]
+
+    J_opt = np.ones(K)
+    J_opt_prev = np.ones(K)
+    u_opt = np.zeros(K)
+    input_space = [Constants.V_DOWN, Constants.V_STAY, Constants.V_UP]
+
+    x_step = 1
+    y_step = Constants.M
+    z_step = y_step * Constants.N
+    t_step = z_step * Constants.D
+    t_step_wrap = -(Constants.T - 1) * t_step
+    x_step_wrap = -(Constants.M - 1)
+    alpha = Constants.ALPHA
+
+    err = 1e-100
+    verbose = False
+
+    # ------------Gauss-Seidel VI --------------------------------
+    # (Value Iteration with in place cost updates) (working)
+    if solver == 1:
+        iter = 0
+        while iter < 1000:
+            iter += 1
+            for i_t in range(Constants.T):
+                for i_z in range(Constants.D):
+                    for i_y in range(Constants.N):
+                        for i_x in range(Constants.M):
+                            i = i_x + i_y * y_step + i_z * z_step + i_t * t_step
+                            # if random.random() < 0.8:
+                            #     continue
+                            cost = np.empty(len(input_space))
+                            for u in input_space:
+                                # print(P[i, P[i, :, u] != 0, u])
+                                cost[u] = G[i, u] + alpha * P[u].getrow(i).dot(J_opt)
+                                # cost[u] = G[i, u] + alpha * np.sum(P[i, :, u] * J_opt)
+                            J_opt[i] = np.min(cost)
+                            u_opt[i] = np.argmin(cost)
+
+            # current_error = np.max(np.abs(J_opt_prev - J_opt)) / np.max(np.abs(J_opt))
+            # changed rtol from 1e-4
+            if np.allclose(J_opt, J_opt_prev, rtol=1e-06, atol=1e-07):
+                # if current_error < err:
+                break
+            else:
+                J_opt_prev = np.copy(J_opt)
+                if verbose:
+                    print("Iteration {} with error {:.4f}".format(iter, current_error))
+        return J_opt, u_opt
+    # ----------------------------------------------------------
+
+    # --------------------Policy Iteration--------------------------------------------
+    if solver == 2:
+        from scipy.optimize import linprog
+
+        u_opt = np.ones(K)  # V_STAY at all starting states is a proper policy
+        A = np.eye(K) - alpha * P[1].toarray()  # I-alpha*P(mu_0(i))
+        b = G[:, 1]  # constraints are initially the costs associated with mu_0(i)=STAY
+        c = -np.ones(
+            K
+        )  # objective function is the negative sum of V(i) over all states
+        result = linprog(c=c, A_eq=A, b_eq=b)
+        J_opt = result.x
+        iter = 0
+        P_mu = np.empty((K, K))
+        G_mu = np.empty(K)
+        while iter < 10:
+            iter += 1
+            for i_t in range(Constants.T):
+                for i_z in range(Constants.D):
+                    for i_y in range(Constants.N):
+                        for i_x in range(Constants.M):
+                            i = i_x + i_y * y_step + i_z * z_step + i_t * t_step
+                            cost = np.empty(len(input_space))
+                            for u in input_space:
+                                cost[u] = G[i, u] + alpha * P[u].getrow(i).dot(J_opt)
+                            u_opt[i] = np.argmin(cost)
+                            # P_mu[i, :] = P[i, :, int(u_opt[i])]
+                            P_mu[i, :] = P[int(u_opt[i])].getrow(i).toarray()
+                            G_mu[i] = G[i, int(u_opt[i])]
+            A = np.eye(K) - alpha * P_mu
+            result = linprog(c=c, A_eq=A, b_eq=G_mu)
+            J_opt = result.x
+
+            current_error = np.max(np.abs(J_opt_prev - J_opt)) / np.max(np.abs(J_opt))
+            # changed rtol from 1e-4
+            if np.allclose(J_opt, J_opt_prev, rtol=1e-05, atol=1e-07):
+                # if current_error < err:
+                break
+            else:
+                # test = np.allclose(J_opt, J_opt_prev, rtol=1e-04, atol=1e-07)
+                J_opt_prev = J_opt.copy()
+
+                if verbose:
+                    # print(
+                    #     "Iteration {} with error {:.4f} and alternate convergence {}".format(
+                    #         iter, current_error, test
+                    #     )
+                    # )
+                    print("Iteration {} with error {:.4f}".format(iter, current_error))
+
+                    # print("Iteration {} ".format(iter))
+
+        return J_opt, u_opt
+    # ---------------------------------------------------------------------------------

@@ -40,6 +40,7 @@ if __name__ == "__main__":
     # returns an ndarray of all of the ordered pairs of the sets containing the possible states in each dimension, ie. the cartesion product of x,y,z,t
     state_space = np.array(list(itertools.product(t, z, y, x)))
     K = len(state_space)
+    print(f"Size of state space: {K}")
 
     # input space
     input_space = np.array([Constants.V_DOWN, Constants.V_STAY, Constants.V_UP])
@@ -49,10 +50,10 @@ if __name__ == "__main__":
     transition_probabilities_implemented = True
     stage_costs_implemented = True
     solution_implemented = True
-    freestyle_solution_implemented = False
+    freestyle_solution_implemented = True
 
     # Compute transition probabilities
-    if transition_probabilities_implemented and not freestyle_solution_implemented:
+    if transition_probabilities_implemented:
         sys.stdout.write("[ ] Computing transition probabilities...")
 
         """
@@ -73,7 +74,7 @@ if __name__ == "__main__":
         P = np.zeros((K, K, L))
 
     # Compute stage costs
-    if stage_costs_implemented and not freestyle_solution_implemented:
+    if stage_costs_implemented:
         sys.stdout.write("[ ] Computing stage costs...")
 
         """
@@ -119,18 +120,21 @@ if __name__ == "__main__":
         u_opt = np.zeros(K)
 
     if freestyle_solution_implemented:
-        P = None
-        G = None
+        import tracemalloc
+        import time
 
         sys.stdout.write("[ ] Solving discounted stochastic shortest path problem...")
         tracemalloc.start()
+        start_time = time.time()
 
         # TODO implement this function in Solver.py
         J_opt, u_opt = freestyle_solution(Constants)
+        end_time = time.time()
 
         current, peak = tracemalloc.get_traced_memory()
         tracemalloc.stop()
         print("\r[X] Discounted stochastic shortest path problem solved.   ")
+        print("Elapsed time: {:.6f} seconds".format(end_time - start_time))
         print("Peak memory usage in MiB: {:.4}".format(peak / 2**20))
     else:
         print(

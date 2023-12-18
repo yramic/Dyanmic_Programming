@@ -264,9 +264,6 @@ def compute_transition_probabilities_sparse(Constants):
                             continue
 
                         # ----------------no vertical displacement ---------------------------
-                        # P[i][i + t_step + x_left][u] = (
-                        #     Constants.P_H_TRANSITION[i_z].P_WIND[Constants.H_WEST]
-                        # ) * P_V_stay  # Go left at x!=0
 
                         row_idx.append(i)
                         col_idx.append(i + t_step + x_left)
@@ -275,9 +272,6 @@ def compute_transition_probabilities_sparse(Constants):
                             * P_V_stay
                         )
 
-                        # P[i][i + t_step + x_right][u] = (
-                        #     Constants.P_H_TRANSITION[i_z].P_WIND[Constants.H_EAST]
-                        # ) * P_V_stay  # Go right at x!=M-1
                         row_idx.append(i)
                         col_idx.append(i + t_step + x_right)
                         values.append(
@@ -287,13 +281,6 @@ def compute_transition_probabilities_sparse(Constants):
 
                         # if we are at the top
                         if i_y == Constants.N - 1:
-                            # P[i][i + t_step][u] = (
-                            #     Constants.P_H_TRANSITION[i_z].P_WIND[Constants.H_STAY]
-                            #     + Constants.P_H_TRANSITION[i_z].P_WIND[
-                            #         Constants.H_NORTH
-                            #     ]
-                            # ) * P_V_stay  # Stay where you are if no wind or pushed north
-
                             row_idx.append(i)
                             col_idx.append(i + t_step)
                             values.append(
@@ -308,10 +295,6 @@ def compute_transition_probabilities_sparse(Constants):
                                 * P_V_stay
                             )
 
-                            # P[i][i + t_step - y_step][u] = (
-                            #     Constants.P_H_TRANSITION[i_z].P_WIND[Constants.H_SOUTH]
-                            # ) * P_V_stay  # Go south at y!=0
-
                             row_idx.append(i)
                             col_idx.append(i + t_step - y_step)
                             values.append(
@@ -320,17 +303,6 @@ def compute_transition_probabilities_sparse(Constants):
                             )
                         # if we are at the bottom
                         elif i_y == 0:
-                            # P[i][i + t_step][u] = (
-                            #     (
-                            #         Constants.P_H_TRANSITION[i_z].P_WIND[
-                            #             Constants.H_STAY
-                            #         ]
-                            #         + Constants.P_H_TRANSITION[i_z].P_WIND[
-                            #             Constants.H_SOUTH
-                            #         ]
-                            #     )
-                            # ) * P_V_stay  # Stay where you are if no wind or pushed south
-
                             row_idx.append(i)
                             col_idx.append(i + t_step)
                             values.append(
@@ -345,10 +317,6 @@ def compute_transition_probabilities_sparse(Constants):
                                 * P_V_stay
                             )
 
-                            #     P[i + t_step + y_step][u] = (
-                            #     Constants.P_H_TRANSITION[i_z].P_WIND[Constants.H_NORTH]
-                            # ) * P_V_stay  # Go north at y!=N-1
-
                             row_idx.append(i)
                             col_idx.append(i + t_step + y_step)
                             values.append(
@@ -357,19 +325,12 @@ def compute_transition_probabilities_sparse(Constants):
                             )
                         # not at extremum in y
                         else:
-                            # P[i][i + t_step][u] = (
-                            #     Constants.P_H_TRANSITION[i_z].P_WIND[Constants.H_STAY]
-                            # ) * P_V_stay  # Stay where you are if no wind
-
                             row_idx.append(i)
                             col_idx.append(i + t_step)
                             values.append(
                                 Constants.P_H_TRANSITION[i_z].P_WIND[Constants.H_STAY]
                                 * P_V_stay
                             )
-                            # P[i][i + t_step + y_step][u] = (
-                            #     Constants.P_H_TRANSITION[i_z].P_WIND[Constants.H_NORTH]
-                            # ) * P_V_stay  # Go north at y!=N-1
 
                             row_idx.append(i)
                             col_idx.append(i + t_step + y_step)
@@ -381,9 +342,6 @@ def compute_transition_probabilities_sparse(Constants):
                                 )
                                 * P_V_stay
                             )
-                            # P[i][i + t_step - y_step][u] = (
-                            #     Constants.P_H_TRANSITION[i_z].P_WIND[Constants.H_SOUTH]
-                            # ) * P_V_stay  # Go south at y!=0
 
                             row_idx.append(i)
                             col_idx.append(i + t_step - y_step)
@@ -395,22 +353,12 @@ def compute_transition_probabilities_sparse(Constants):
 
                         # ------------vertical displacement---------------------
                         if u == Constants.V_UP or u == Constants.V_DOWN:
-                            # P[i][i + t_step + z_step + x_left][u] = (
-                            #     Constants.P_H_TRANSITION[i_z].P_WIND[Constants.H_WEST]
-                            #     * Constants.P_V_TRANSITION[1]
-                            # )  # Go left at x=0
-
                             row_idx.append(i)
                             col_idx.append(i + t_step + z_step + x_left)
                             values.append(
                                 Constants.P_H_TRANSITION[i_z].P_WIND[Constants.H_WEST]
                                 * Constants.P_V_TRANSITION[1]
                             )
-
-                            # P[i][i + t_step + z_step + x_right][u] = (
-                            #     Constants.P_H_TRANSITION[i_z].P_WIND[Constants.H_EAST]
-                            #     * Constants.P_V_TRANSITION[1]
-                            # )  # Go right at x=M-1
 
                             row_idx.append(i)
                             col_idx.append(i + t_step + z_step + x_right)
@@ -421,17 +369,6 @@ def compute_transition_probabilities_sparse(Constants):
 
                             # if we are at the top
                             if i_y == Constants.N - 1:
-                                # P[i][i + t_step + z_step][u] = (
-                                #     Constants.P_H_TRANSITION[i_z].P_WIND[
-                                #         Constants.H_STAY
-                                #     ]
-                                #     + Constants.P_H_TRANSITION[i_z].P_WIND[
-                                #         Constants.H_NORTH
-                                #     ]
-                                # ) * Constants.P_V_TRANSITION[
-                                #     1
-                                # ]  # Stay where you are if no wind or pushed north
-
                                 row_idx.append(i)
                                 col_idx.append(i + t_step + z_step)
                                 values.append(
@@ -445,13 +382,6 @@ def compute_transition_probabilities_sparse(Constants):
                                     )
                                     * Constants.P_V_TRANSITION[1]
                                 )
-                                # P[i][i + t_step + z_step - y_step][u] = (
-                                #     Constants.P_H_TRANSITION[i_z].P_WIND[
-                                #         Constants.H_SOUTH
-                                #     ]
-                                # ) * Constants.P_V_TRANSITION[
-                                #     1
-                                # ]  # Go south at y!=0
 
                                 row_idx.append(i)
                                 col_idx.append(i + t_step + z_step - y_step)
@@ -463,17 +393,6 @@ def compute_transition_probabilities_sparse(Constants):
                                 )
                             # if we are at the bottom
                             elif i_y == 0:
-                                # P[i][i + t_step + z_step][u] = (
-                                #     Constants.P_H_TRANSITION[i_z].P_WIND[
-                                #         Constants.H_STAY
-                                #     ]
-                                #     + Constants.P_H_TRANSITION[i_z].P_WIND[
-                                #         Constants.H_SOUTH
-                                #     ]
-                                # ) * Constants.P_V_TRANSITION[
-                                #     1
-                                # ]  # Stay where you are if no wind or pushed south
-
                                 row_idx.append(i)
                                 col_idx.append(i + t_step + z_step)
                                 values.append(
@@ -487,13 +406,6 @@ def compute_transition_probabilities_sparse(Constants):
                                     )
                                     * Constants.P_V_TRANSITION[1]
                                 )
-                                # P[i][i + t_step + z_step + y_step][u] = (
-                                #     Constants.P_H_TRANSITION[i_z].P_WIND[
-                                #         Constants.H_NORTH
-                                #     ]
-                                # ) * Constants.P_V_TRANSITION[
-                                #     1
-                                # ]  # Go north at y!=N-1
 
                                 row_idx.append(i)
                                 col_idx.append(i + t_step + z_step + y_step)
@@ -505,14 +417,6 @@ def compute_transition_probabilities_sparse(Constants):
                                 )
                             # not at extremum in y
                             else:
-                                # P[i][i + t_step + z_step][u] = (
-                                #     Constants.P_H_TRANSITION[i_z].P_WIND[
-                                #         Constants.H_STAY
-                                #     ]
-                                # ) * Constants.P_V_TRANSITION[
-                                #     1
-                                # ]  # Stay where you are if no wind
-
                                 row_idx.append(i)
                                 col_idx.append(i + t_step + z_step)
                                 values.append(
@@ -521,13 +425,6 @@ def compute_transition_probabilities_sparse(Constants):
                                     ]
                                     * Constants.P_V_TRANSITION[1]
                                 )
-                                # P[i][i + t_step + z_step + y_step][u] = (
-                                #     Constants.P_H_TRANSITION[i_z].P_WIND[
-                                #         Constants.H_NORTH
-                                #     ]
-                                # ) * Constants.P_V_TRANSITION[
-                                #     1
-                                # ]  # Go north at y!=N-1
 
                                 row_idx.append(i)
                                 col_idx.append(i + t_step + z_step + y_step)
@@ -537,14 +434,6 @@ def compute_transition_probabilities_sparse(Constants):
                                     ]
                                     * Constants.P_V_TRANSITION[1]
                                 )
-
-                                # P[i][i + t_step + z_step - y_step][u] = (
-                                #     Constants.P_H_TRANSITION[i_z].P_WIND[
-                                #         Constants.H_SOUTH
-                                #     ]
-                                # ) * Constants.P_V_TRANSITION[
-                                #     1
-                                # ]  # Go south at y!=0
 
                                 row_idx.append(i)
                                 col_idx.append(i + t_step + z_step - y_step)
